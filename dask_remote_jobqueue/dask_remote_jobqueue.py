@@ -30,8 +30,8 @@ class Process(ProcessInterface):
         await super().start()
 
     async def close(self):
-        #self.proc.kill()  # https://github.com/ronf/asyncssh/issues/112
-        #self.connection.close()
+        # self.proc.kill()  # https://github.com/ronf/asyncssh/issues/112
+        # self.connection.close()
         await super().close()
 
     def __repr__(self):
@@ -57,7 +57,6 @@ class Scheduler(Process):
         self, address: str, connect_options: dict, kwargs: dict, remote_python=None
     ):
         super().__init__()
-
 
     async def start(self):
         # import asyncssh  # import now to avoid adding to module startup time
