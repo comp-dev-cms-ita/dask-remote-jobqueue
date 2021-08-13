@@ -35,5 +35,4 @@ jobs:
 
       - name: pytest
         run: |
-          pip install . 
-          
+          pip install .
