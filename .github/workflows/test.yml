@@ -17,6 +17,9 @@ jobs:
       - uses: actions/setup-python@v2
       - uses: pre-commit/action@v2.0.0
 
+  pytest:
+    name: "Run pytest"
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
