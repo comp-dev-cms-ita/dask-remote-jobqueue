@@ -3,10 +3,15 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import weakref
+import json
+import time
+import tempfile
 from dask_jobqueue import HTCondorCluster
+from subprocess import check_output, STDOUT
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 from distributed.deploy.spec import ProcessInterface
-from dask.core import Job
+from dask.core import Job, Status
 import htcondor
 
 
@@ -19,19 +24,18 @@ class Process(ProcessInterface):
 
     def __init__(self, **kwargs):
         self.connection = None
-        self.proc = None
+        self.connection_dash = None
+
         super().__init__(**kwargs)
 
     async def start(self):
         assert self.connection
-        weakref.finalize(
-            self, self.proc.kill
-        )  # https://github.com/ronf/asyncssh/issues/112
+        assert self.connection_dash
         await super().start()
 
     async def close(self):
-        # self.proc.kill()  # https://github.com/ronf/asyncssh/issues/112
-        # self.connection.close()
+        self.connection.close()
+        self.connection_dash.close()
         await super().close()
 
     def __repr__(self):
@@ -56,60 +60,85 @@ class Scheduler(Process):
     def __init__(
         self, address: str, connect_options: dict, kwargs: dict, remote_python=None
     ):
+        self.cluster_id = None
         super().__init__()
 
     async def start(self):
-        # import asyncssh  # import now to avoid adding to module startup time
 
-        # logger.debug("Created Scheduler Connection")
+        with tempfile.TemporaryDirectory() as tmpdirname:
 
-        # self.connection = await asyncssh.connect(self.address, **self.connect_options)
+            env = Environment(
+                loader=PackageLoader("dask_remote_jobqueue"),
+                autoescape=select_autoescape(),
+            )
 
-        # result = await self.connection.run("uname")
-        # if result.exit_status == 0:
-        #     set_env = 'env DASK_INTERNAL_INHERIT_CONFIG="{}"'.format(
-        #         dask.config.serialize(dask.config.global_config)
-        #     )
-        # else:
-        #     result = await self.connection.run("cmd /c ver")
-        #     if result.exit_status == 0:
-        #         set_env = "set DASK_INTERNAL_INHERIT_CONFIG={} &&".format(
-        #             dask.config.serialize(dask.config.global_config)
-        #         )
-        #     else:
-        #         raise Exception(
-        #             "Scheduler failed to set DASK_INTERNAL_INHERIT_CONFIG variable "
-        #         )
+            files = ["scheduler.sh", "scheduler.sub", "start_scheduler.py"]
 
-        # if not self.remote_python:
-        #     self.remote_python = sys.executable
+            for f in files:
+                tmpl = env.get_template(f)
+                with open(f) as dest:
+                    dest.write(tmpdirname + tmpl.render())
 
-        # cmd = " ".join(
-        #     [
-        #         set_env,
-        #         self.remote_python,
-        #         "-m",
-        #         "distributed.cli.dask_scheduler",
-        #     ]
-        #     + cli_keywords(self.kwargs, cls=_Scheduler)
-        # )
-        # self.proc = await self.connection.create_process(cmd)
+            cmd = (
+                "source ~/.htc.rc; cd {tmpdirname}; condor_submit -spool scheduler.sub"
+            )
 
-        # # We watch stderr in order to get the address, then we return
-        # while True:
-        #     line = await self.proc.stderr.readline()
-        #     if not line.strip():
-        #         raise Exception("Worker failed to start")
-        #     logger.info(line.strip())
-        #     if "Scheduler at" in line:
-        #         self.address = line.split("Scheduler at:")[1].strip()
-        #         break
-        # logger.debug("%s", line)
+            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+
+            try:
+                self.cluster_id = cmd_out.split("cluster ")[1].strip(".")
+            except:
+                raise Exception("Failed to submit job for scheduler: %s" % cmd_out)
+
+            if not self.cluster_id:
+                raise Exception("Failed to submit job for scheduler: %s" % cmd_out)
+
+        job_status = 1
+        while job_status == 1:
+            time.sleep(30)
+            cmd = "source ~/.htc.rc; condor_q {self.cluster_id}.0 -json"
+
+            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+
+            try:
+                classAd = json.loads(cmd_out)
+            except:
+                raise Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
+
+            job_status = classAd[0].get("JobStatus")
+            if job_status == 1:
+                # logger.info("Job {cluster_id}.0 still idle")
+                continue
+            elif job_status != 2:
+                raise Exception("Scheduler job in error {job_status}")
+
+            startd_ip_classAd = classAd[0].get("StartdIpAddr")
+            if not startd_ip_classAd:
+                raise Exception("Scheduler job running but no StartdIpAddr in ClassAd")
+
+            startd_ip = startd_ip_classAd.split(":")[0].strip("<")
+
+        import asyncssh  # import now to avoid adding to module startup time
+
+        self.connection = await asyncssh.connect("90.147.75.109")
+        await self.connection.forward_local_port("", 8989, startd_ip, 8989)
+
+        self.connection_dash = await asyncssh.connect("90.147.75.109")
+        await self.connection.forward_local_port("", 8787, startd_ip, 8787)
+
+        self.address = "localhost:8989"
         await super().start()
 
     async def close(self):
-        # self.proc.kill()  # https://github.com/ronf/asyncssh/issues/112
-        # self.connection.close()
+        cmd = "source ~/.htc.rc; condor_rm {self.cluster_id}.0"
+
+        cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+
+        if cmd_out != "Job {self.cluster_id}.0 marked for removal":
+            raise Exception(
+                "Failed to hold job {self.cluster_id} for scheduler: %s" % cmd_out
+            )
+
         await super().close()
 
 
@@ -143,3 +172,7 @@ class RemoteHTCondorCluster(HTCondorCluster):
         super().__init__(
             scheduler=scheduler,
         )
+
+
+def CreateRemoteHTCondor():
+    return RemoteHTCondorCluster(dashboard_address="localhost:8787")
