@@ -173,7 +173,9 @@ class RemoteHTCondor(SpecCluster):
     ):
         sched = {"cls": Scheduler, "options": {}}
         super().__init__(
-            scheduler=sched
+            scheduler=sched,
+            workers={},
+            name="RemoteHTC"
         )
 
 def CreateRemoteHTCondor():
