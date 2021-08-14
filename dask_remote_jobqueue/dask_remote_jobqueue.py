@@ -90,6 +90,7 @@ class Scheduler(Process):
                 tmpl = env.get_template(f)
                 with open(tmpdirname + "/" + f, "w") as dest:
                     dest.write(tmpl.render())
+                    print(tmpl.render())
 
             cmd = "source ~/htc.rc; cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
 
