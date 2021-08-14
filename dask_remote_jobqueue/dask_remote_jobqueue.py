@@ -167,16 +167,12 @@ class Scheduler(Process):
 
         await super().close()
 
+
 class RemoteHTCondor(SpecCluster):
-    def __init__(
-        self
-    ):
+    def __init__(self):
         sched = {"cls": Scheduler, "options": {}}
-        super().__init__(
-            scheduler=sched,
-            workers={},
-            name="RemoteHTC"
-        )
+        super().__init__(scheduler=sched, workers={}, name="RemoteHTC")
+
 
 def CreateRemoteHTCondor():
     # workers = {
