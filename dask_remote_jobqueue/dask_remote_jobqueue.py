@@ -168,6 +168,7 @@ class RemoteHTCondorCluster(HTCondorCluster):
         disk=None,
         **job_kwargs,
     ):
+        print("INIT")
         sched = {
             "cls": Scheduler,  # Use local scheduler for now
             "options": scheduler_options,
