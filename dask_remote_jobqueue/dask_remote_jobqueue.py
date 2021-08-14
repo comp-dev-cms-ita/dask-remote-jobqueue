@@ -91,9 +91,7 @@ class Scheduler(Process):
                 with open(tmpdirname + "/" + f, "w") as dest:
                     dest.write(tmpl.render())
 
-            cmd = (
-                "source ~/htc.rc; cd {tmpdirname}; condor_submit -spool scheduler.sub"
-            )
+            cmd = "source ~/htc.rc; cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
 
             print(cmd)
             try:
@@ -112,7 +110,7 @@ class Scheduler(Process):
         job_status = 1
         while job_status == 1:
             time.sleep(30)
-            cmd = "source ~/htc.rc; condor_q {self.cluster_id}.0 -json"
+            cmd = "source ~/htc.rc; condor_q {}.0 -json".format(self.cluster_id)
 
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
 
@@ -126,7 +124,7 @@ class Scheduler(Process):
                 # logger.info("Job {cluster_id}.0 still idle")
                 continue
             elif job_status != 2:
-                raise Exception("Scheduler job in error {job_status}")
+                raise Exception("Scheduler job in error {}".format(job_status))
 
             startd_ip_classAd = classAd[0].get("StartdIpAddr")
             if not startd_ip_classAd:
@@ -146,7 +144,7 @@ class Scheduler(Process):
         await super().start()
 
     async def close(self):
-        cmd = "source ~/htc.rc; condor_rm {self.cluster_id}.0"
+        cmd = "source ~/htc.rc; condor_rm {}.0".format(self.cluster_id)
 
         print(cmd)
         try:
@@ -154,9 +152,9 @@ class Scheduler(Process):
         except Exception as ex:
             raise ex
 
-        if cmd_out != "Job {self.cluster_id}.0 marked for removal":
+        if cmd_out != "Job {}.0 marked for removal".format(self.cluster_id):
             raise Exception(
-                "Failed to hold job {self.cluster_id} for scheduler: %s" % cmd_out
+                "Failed to hold job for scheduler: %s" % cmd_out
             )
 
         await super().close()
