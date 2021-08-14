@@ -70,13 +70,11 @@ class Scheduler(Process):
     def __init__(
         self
     ):
-        print("INIT")
         self.cluster_id = None
         super().__init__()
 
     async def start(self):
 
-        print("START")
         with tempfile.TemporaryDirectory() as tmpdirname:
 
             env = Environment(
@@ -90,11 +88,9 @@ class Scheduler(Process):
                 tmpl = env.get_template(f)
                 with open(tmpdirname + "/" + f, "w") as dest:
                     dest.write(tmpl.render())
-                    print(tmpl.render())
 
             cmd = "source ~/htc.rc; cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
 
-            print(cmd)
             try:
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
             except Exception as ex:
@@ -147,7 +143,6 @@ class Scheduler(Process):
     async def close(self):
         cmd = "source ~/htc.rc; condor_rm {}.0".format(self.cluster_id)
 
-        print(cmd)
         try:
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
         except Exception as ex:
