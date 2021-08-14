@@ -5,3 +5,4 @@ output     = scheduler.out
 error      = scheduler.error
 transfer_input_files = start_scheduler.py, scheduler.sh, /root/.ca.crt
 +OWNER = "condor"
+queue
