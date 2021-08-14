@@ -6,11 +6,11 @@ import weakref
 import json
 import time
 import tempfile
-from dask_jobqueue import HTCondorCluster
+from dask_jobqueue import HTCondorCluster, HTCondorJob
 from subprocess import check_output, STDOUT
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from distributed.deploy.spec import ProcessInterface
+from distributed.deploy.spec import ProcessInterface, SpecCluster
 from dask_jobqueue.core import Job
 
 
@@ -40,6 +40,16 @@ class Process(ProcessInterface):
     def __repr__(self):
         return f"<SSH {type(self).__name__}: status={self.status}>"
 
+from dask_jobqueue.htcondor import HTCondorJob
+
+class Job(HTCondorJob):
+    def __init__(self,*args, **kwargs):
+        super().__init__(*args, **kwargs,
+                        python="source /usr/local/share/root6/bin/thisroot.sh ; /usr/bin/python3"
+                )
+        self.submit_command = "./sched_submit.sh"
+        #self._scheduler = "tcp://90.147.75.109:8989" 
+        self.executable = "/bin/bash"
 
 class Scheduler(Process):
     """A Remote Dask Scheduler controlled via HTCondor
@@ -181,7 +191,7 @@ class RemoteHTCondorCluster(HTCondorCluster):
             disk = disk        )
 
         print("INIT")
-        self._scheduler = Scheduler 
+        self._scheduler = sched
         print("INIT")
 
     @property
@@ -190,7 +200,17 @@ class RemoteHTCondorCluster(HTCondorCluster):
     
     @scheduler.setter
     def scheduler(self, value):
-        self._scheduler = Scheduler 
+        sched = {
+            "cls": Scheduler,  # Use local scheduler for now
+        }
+        self._scheduler = sched 
 
 def CreateRemoteHTCondor():
-    return RemoteHTCondorCluster(cores=8, memory='24GB', disk="1GB", dashboard_address="localhost:8787")
+    worker = {
+            "cls": Job
+        }
+    sched = {
+            "cls": Scheduler,  # Use local scheduler for now
+        }
+
+    return SpecCluster(worker, sched, name="SSHCluster") 
