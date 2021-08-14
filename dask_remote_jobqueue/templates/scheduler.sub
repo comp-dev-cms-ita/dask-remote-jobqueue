@@ -3,6 +3,6 @@ executable = scheduler.sh
 log        = scheduler.log
 output     = scheduler.out
 error      = scheduler.error
-transfer_input_files = start_scheduler.py, scheduler.sh, /root/.ca.crt, /root/.token
+transfer_input_files = start_scheduler.py, scheduler.sh, /root/.ca.crt, /root/.token, job_submit.sh
 +OWNER = "condor"
 queue
