@@ -163,13 +163,13 @@ class RemoteHTCondorCluster(HTCondorCluster):
         config_name=None,
         **job_kwargs,
     ):
-        scheduler = {
+        sched = {
             "cls": Scheduler,  # Use local scheduler for now
             "options": scheduler_options,
         }
 
         super().__init__(
-            scheduler=scheduler,
+            scheduler = sched
         )
 
 
