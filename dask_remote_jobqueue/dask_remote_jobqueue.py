@@ -144,7 +144,11 @@ class Scheduler(Process):
     async def close(self):
         cmd = "source ~/htc.rc; condor_rm {self.cluster_id}.0"
 
-        cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+        print(cmd)
+        try:
+            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+        except Exception as ex:
+            raise ex
 
         if cmd_out != "Job {self.cluster_id}.0 marked for removal":
             raise Exception(
