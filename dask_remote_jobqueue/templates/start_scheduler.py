@@ -19,7 +19,7 @@ class MyHTCondorJob(HTCondorJob):
             **kwargs,
             python="source /usr/local/share/root6/bin/thisroot.sh ; /usr/bin/python3",
         )
-        self.submit_command = "./sched_submit.sh"
+        self.submit_command = "./job_submit.sh"
         self.executable = "/bin/bash"
 
 
