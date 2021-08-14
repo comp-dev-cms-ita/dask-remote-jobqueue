@@ -181,9 +181,19 @@ class RemoteHTCondorCluster(HTCondorCluster):
             disk = disk        )
 
         print("INIT")
-        self.scheduler = sched
+        self._scheduler = sched
         print("INIT")
 
+    @property
+    def scheduler(self):
+        return self._scheduler
+    
+    @scheduler.setter
+    def scheduler(self, value):
+        sched = {
+            "cls": Scheduler,  # Use local scheduler for now
+        }
+        self._scheduler = sched 
 
 def CreateRemoteHTCondor():
     return RemoteHTCondorCluster(cores=8, memory='24GB', disk="1GB", dashboard_address="localhost:8787")
