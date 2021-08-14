@@ -11,8 +11,7 @@ from subprocess import check_output, STDOUT
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from distributed.deploy.spec import ProcessInterface
-from distributed.core import Job, Status
-import htcondor
+from dask_jobqueue.core import Job
 
 
 class Process(ProcessInterface):
