@@ -153,58 +153,6 @@ class Scheduler(Process):
         await super().close()
 
 
-class RemoteHTCondorCluster(HTCondorCluster):
-    def __init__(
-        self,
-        n_workers=0,
-        job_cls: Job = None,
-        # Cluster keywords
-        loop=None,
-        security=None,
-        silence_logs="error",
-        name=None,
-        asynchronous=False,
-        # Scheduler-only keywords
-        dashboard_address=None,
-        host=None,
-        scheduler_options=None,
-        # Options for both scheduler and workers
-        interface=None,
-        protocol="tcp://",
-        # Job keywords
-        config_name=None,
-        cores=None,
-        memory=None,
-        disk=None,
-        **job_kwargs,
-    ):
-        print("INIT")
-        sched = {
-            "cls": Scheduler,  # Use local scheduler for now
-            "options": scheduler_options,
-        }
-
-        print("INIT")
-        super().__init__(
-            cores = cores,
-            memory = memory,
-            disk = disk        )
-
-        print("INIT")
-        self._scheduler = sched
-        print("INIT")
-
-    @property
-    def scheduler(self):
-        return self._scheduler
-    
-    @scheduler.setter
-    def scheduler(self, value):
-        sched = {
-            "cls": Scheduler,  # Use local scheduler for now
-        }
-        self._scheduler = sched 
-
 def CreateRemoteHTCondor():
     worker = {
             "cls": Job
