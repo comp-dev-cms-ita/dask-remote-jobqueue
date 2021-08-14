@@ -6,7 +6,8 @@ import weakref
 import json
 import time
 import tempfile
-from dask_jobqueue import HTCondorCluster, HTCondorJob
+from dask_jobqueue import HTCondorCluster
+from dask_jobqueue.htcondor import HTCondorJob
 from subprocess import check_output, STDOUT
 from jinja2 import Environment, PackageLoader, select_autoescape
 
