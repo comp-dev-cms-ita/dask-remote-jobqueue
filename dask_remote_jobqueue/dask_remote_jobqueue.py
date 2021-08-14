@@ -84,7 +84,7 @@ class Scheduler(Process):
                 autoescape=select_autoescape(),
             )
 
-            files = ["scheduler.sh", "scheduler.sub", "start_scheduler.py"]
+            files = ["scheduler.sh", "scheduler.sub", "start_scheduler.py", "job_submit.sh"]
 
             for f in files:
                 tmpl = env.get_template(f)
