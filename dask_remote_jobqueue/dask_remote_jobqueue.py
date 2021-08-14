@@ -88,8 +88,8 @@ class Scheduler(Process):
 
             for f in files:
                 tmpl = env.get_template(f)
-                with open(f) as dest:
-                    dest.write(tmpdirname + tmpl.render())
+                with open(tmpdirname + f) as dest:
+                    dest.write(tmpl.render())
 
             cmd = (
                 "source ~/.htc.rc; cd {tmpdirname}; condor_submit -spool scheduler.sub"
