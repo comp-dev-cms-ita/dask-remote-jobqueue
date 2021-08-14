@@ -68,7 +68,7 @@ class Scheduler(Process):
     """
 
     def __init__(
-        self, address: str, connect_options: dict, kwargs: dict, remote_python=None
+        self
     ):
         print("INIT")
         self.cluster_id = None
