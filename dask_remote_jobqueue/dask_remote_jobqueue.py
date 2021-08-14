@@ -88,7 +88,7 @@ class Scheduler(Process):
 
             for f in files:
                 tmpl = env.get_template(f)
-                with open(tmpdirname + "/" + f) as dest:
+                with open(tmpdirname + "/" + f, "w") as dest:
                     dest.write(tmpl.render())
 
             cmd = (
