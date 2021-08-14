@@ -172,10 +172,12 @@ class RemoteHTCondorCluster(HTCondorCluster):
         }
 
         super().__init__(
-        )
+            cores = cores,
+            memory = memory,
+            disk = disk        )
 
         self.scheduler = sched
 
 
 def CreateRemoteHTCondor():
-    return RemoteHTCondorCluster(dashboard_address="localhost:8787")
+    return RemoteHTCondorCluster(cores=8, memory='24GB', disk="1GB", dashboard_address="localhost:8787")
