@@ -44,8 +44,10 @@ cluster = HTCondorCluster(
 
 cluster.scale(jobs=3)
 
+
 def closeme():
     cluster.close()
+
 
 signal(SIGTERM, closeme)
 

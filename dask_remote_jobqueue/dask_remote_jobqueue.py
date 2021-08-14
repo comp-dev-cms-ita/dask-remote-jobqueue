@@ -41,16 +41,21 @@ class Process(ProcessInterface):
     def __repr__(self):
         return f"<SSH {type(self).__name__}: status={self.status}>"
 
+
 from dask_jobqueue.htcondor import HTCondorJob
 
+
 class Job(HTCondorJob):
-    def __init__(self,*args, **kwargs):
-        super().__init__(*args, **kwargs,
-                        python="source /usr/local/share/root6/bin/thisroot.sh ; /usr/bin/python3"
-                )
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *args,
+            **kwargs,
+            python="source /usr/local/share/root6/bin/thisroot.sh ; /usr/bin/python3",
+        )
         self.submit_command = "./sched_submit.sh"
-        #self._scheduler = "tcp://90.147.75.109:8989" 
+        # self._scheduler = "tcp://90.147.75.109:8989"
         self.executable = "/bin/bash"
+
 
 class Scheduler(Process):
     """A Remote Dask Scheduler controlled via HTCondor
@@ -67,9 +72,7 @@ class Scheduler(Process):
         dask.distributed.Scheduler class
     """
 
-    def __init__(
-        self
-    ):
+    def __init__(self):
         self.cluster_id = None
         super().__init__()
 
@@ -82,14 +85,21 @@ class Scheduler(Process):
                 autoescape=select_autoescape(),
             )
 
-            files = ["scheduler.sh", "scheduler.sub", "start_scheduler.py", "job_submit.sh"]
+            files = [
+                "scheduler.sh",
+                "scheduler.sub",
+                "start_scheduler.py",
+                "job_submit.sh",
+            ]
 
             for f in files:
                 tmpl = env.get_template(f)
                 with open(tmpdirname + "/" + f, "w") as dest:
                     dest.write(tmpl.render())
 
-            cmd = "source ~/htc.rc; cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
+            cmd = "source ~/htc.rc; cd {}; condor_submit -spool scheduler.sub".format(
+                tmpdirname
+            )
 
             try:
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
@@ -131,10 +141,14 @@ class Scheduler(Process):
 
         import asyncssh  # import now to avoid adding to module startup time
 
-        self.connection = await asyncssh.connect("90.147.75.109", username="root", known_hosts=None)
+        self.connection = await asyncssh.connect(
+            "90.147.75.109", username="root", known_hosts=None
+        )
         await self.connection.forward_local_port("", 8989, startd_ip, 8989)
 
-        self.connection_dash = await asyncssh.connect("90.147.75.109", username="root", known_hosts=None)
+        self.connection_dash = await asyncssh.connect(
+            "90.147.75.109", username="root", known_hosts=None
+        )
         await self.connection.forward_local_port("", 8787, startd_ip, 8787)
 
         self.address = "localhost:8989"
@@ -149,9 +163,7 @@ class Scheduler(Process):
             raise ex
 
         if cmd_out != "Job {}.0 marked for removal".format(self.cluster_id):
-            raise Exception(
-                "Failed to hold job for scheduler: %s" % cmd_out
-            )
+            raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
         await super().close()
 
@@ -167,9 +179,6 @@ def CreateRemoteHTCondor():
     #         }
     #     }
     #     }
-    sched = {
-            "cls": Scheduler,
-            "options": {}  # Use local scheduler for now
-        }
+    sched = {"cls": Scheduler, "options": {}}  # Use local scheduler for now
 
-    return SpecCluster({}, sched, name="SSHCluster") 
+    return SpecCluster({}, sched, name="SSHCluster")
