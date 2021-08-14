@@ -13,4 +13,5 @@ export _condor_SEC_CLIENT_AUTHENTICATION_METHODS=SCITOKENS
 export _condor_SCITOKENS_FILE=$PWD/.token
 export _condot_TOOL_DEBUG=D_FULLDEBUG,D_SECURITY
 
-condor_submit -spool $@
+source /usr/local/share/root6/bin/thisroot.sh
+python3 start_scheduler.py
