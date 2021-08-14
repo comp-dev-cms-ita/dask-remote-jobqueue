@@ -59,11 +59,13 @@ class Scheduler(Process):
     def __init__(
         self, address: str, connect_options: dict, kwargs: dict, remote_python=None
     ):
+        print("INIT")
         self.cluster_id = None
         super().__init__()
 
     async def start(self):
 
+        print("START")
         with tempfile.TemporaryDirectory() as tmpdirname:
 
             env = Environment(
