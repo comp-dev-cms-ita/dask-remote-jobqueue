@@ -101,7 +101,7 @@ class Scheduler(Process):
                 raise ex
 
             try:
-                self.cluster_id = cmd_out.split("cluster ")[1].strip(".")
+                self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
             except:
                 raise Exception("Failed to submit job for scheduler: %s" % cmd_out)
 
