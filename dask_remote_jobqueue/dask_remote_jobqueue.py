@@ -165,7 +165,11 @@ def CreateRemoteHTCondor():
     workers = {
         0:{
             "cls": Job,
-            "options": {}
+            "options": {
+                "cores": 1,
+                "memory": "3GB",
+                "disk": "1GB"
+            }
         }
         }
     sched = {
