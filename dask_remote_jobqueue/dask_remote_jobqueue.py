@@ -92,7 +92,7 @@ class Scheduler(Process):
                     dest.write(tmpl.render())
 
             cmd = (
-                "source ~/.htc.rc; cd {tmpdirname}; condor_submit -spool scheduler.sub"
+                "source ~/htc.rc; cd {tmpdirname}; condor_submit -spool scheduler.sub"
             )
 
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
@@ -108,7 +108,7 @@ class Scheduler(Process):
         job_status = 1
         while job_status == 1:
             time.sleep(30)
-            cmd = "source ~/.htc.rc; condor_q {self.cluster_id}.0 -json"
+            cmd = "source ~/htc.rc; condor_q {self.cluster_id}.0 -json"
 
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
 
@@ -142,7 +142,7 @@ class Scheduler(Process):
         await super().start()
 
     async def close(self):
-        cmd = "source ~/.htc.rc; condor_rm {self.cluster_id}.0"
+        cmd = "source ~/htc.rc; condor_rm {self.cluster_id}.0"
 
         cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
 
