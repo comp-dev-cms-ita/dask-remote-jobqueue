@@ -36,7 +36,7 @@ setup_args = dict(
     url="http://github.com/dodas-ts/dask-remote-jobqueue",
     license="MIT",
     platforms="Linux",
-    python_requires="~=3.7",
+    python_requires="~=3.6",
     keywords=["Interactive", "Dask", "Distributed"],
 )
 
