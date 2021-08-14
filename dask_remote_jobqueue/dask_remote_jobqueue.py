@@ -169,8 +169,9 @@ class RemoteHTCondorCluster(HTCondorCluster):
         }
 
         super().__init__(
-            scheduler = sched
         )
+
+        self.scheduler = sched
 
 
 def CreateRemoteHTCondor():
