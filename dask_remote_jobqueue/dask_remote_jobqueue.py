@@ -174,12 +174,15 @@ class RemoteHTCondorCluster(HTCondorCluster):
             "options": scheduler_options,
         }
 
+        print("INIT")
         super().__init__(
             cores = cores,
             memory = memory,
             disk = disk        )
 
+        print("INIT")
         self.scheduler = sched
+        print("INIT")
 
 
 def CreateRemoteHTCondor():
