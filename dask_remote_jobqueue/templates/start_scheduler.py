@@ -44,7 +44,7 @@ cluster = HTCondorCluster(
 
 cluster.scale(jobs=3)
 
-for sig in SIGTERM:
+for sig in [SIGTERM]:
     signal(sig, cluster.close())
 
 while True:
