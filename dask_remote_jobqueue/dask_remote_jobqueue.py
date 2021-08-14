@@ -95,7 +95,11 @@ class Scheduler(Process):
                 "source ~/htc.rc; cd {tmpdirname}; condor_submit -spool scheduler.sub"
             )
 
-            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+            print(cmd)
+            try:
+                cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+            except Exception as ex:
+                raise ex
 
             try:
                 self.cluster_id = cmd_out.split("cluster ")[1].strip(".")
