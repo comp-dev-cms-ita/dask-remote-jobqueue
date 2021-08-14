@@ -161,6 +161,9 @@ class RemoteHTCondorCluster(HTCondorCluster):
         protocol="tcp://",
         # Job keywords
         config_name=None,
+        cores=None,
+        memory=None,
+        disk=None,
         **job_kwargs,
     ):
         sched = {
