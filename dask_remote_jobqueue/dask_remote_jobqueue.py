@@ -162,19 +162,19 @@ class Scheduler(Process):
 
 
 def CreateRemoteHTCondor():
-    workers = {
-        0:{
-            "cls": Job,
-            "options": {
-                "cores": 1,
-                "memory": "3GB",
-                "disk": "1GB"
-            }
-        }
-        }
+    # workers = {
+    #     0:{
+    #         "cls": Job,
+    #         "options": {
+    #             "cores": 1,
+    #             "memory": "3GB",
+    #             "disk": "1GB"
+    #         }
+    #     }
+    #     }
     sched = {
             "cls": Scheduler,
             "options": {}  # Use local scheduler for now
         }
 
-    return SpecCluster(workers, sched, name="SSHCluster") 
+    return SpecCluster({}, sched, name="SSHCluster") 
