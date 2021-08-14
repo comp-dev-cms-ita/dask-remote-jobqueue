@@ -135,10 +135,10 @@ class Scheduler(Process):
 
         import asyncssh  # import now to avoid adding to module startup time
 
-        self.connection = await asyncssh.connect("90.147.75.109",known_hosts=None)
+        self.connection = await asyncssh.connect("90.147.75.109", username="root", known_hosts=None)
         await self.connection.forward_local_port("", 8989, startd_ip, 8989)
 
-        self.connection_dash = await asyncssh.connect("90.147.75.109",known_hosts=None)
+        self.connection_dash = await asyncssh.connect("90.147.75.109", username="root", known_hosts=None)
         await self.connection.forward_local_port("", 8787, startd_ip, 8787)
 
         self.address = "localhost:8989"
