@@ -38,6 +38,7 @@ setup_args = dict(
     platforms="Linux",
     python_requires="~=3.6",
     keywords=["Interactive", "Dask", "Distributed"],
+    include_package_data=True,
 )
 
 # setuptools requirements
@@ -49,8 +50,6 @@ if "setuptools" in sys.modules:
             if not req or req.startswith(("-e", "#")):
                 continue
             install_requires.append(req)
-    setup_args["include_package_data"] = True
-
 
 def main():
     setup(**setup_args)

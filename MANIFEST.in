@@ -2,4 +2,4 @@ include *.md
 include LICENSE
 include version.py
 include requirements.txt
-include templates/*
+include dask_remote_jobqueue/templates/*
