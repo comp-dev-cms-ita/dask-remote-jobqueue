@@ -49,6 +49,7 @@ if "setuptools" in sys.modules:
             if not req or req.startswith(("-e", "#")):
                 continue
             install_requires.append(req)
+    setup_args["include_package_data"] = True
 
 
 def main():

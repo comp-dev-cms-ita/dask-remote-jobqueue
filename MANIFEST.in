@@ -2,3 +2,4 @@ include *.md
 include LICENSE
 include version.py
 include requirements.txt
+include templates/*
