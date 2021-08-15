@@ -162,7 +162,7 @@ class Scheduler(Process):
         except Exception as ex:
             raise ex
 
-        if cmd_out != "Job {}.0 marked for removal".format(self.cluster_id):
+        if str(cmd_out) != "'Job {}.0 marked for removal'\\n".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
         await super().close()
