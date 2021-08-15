@@ -51,6 +51,7 @@ if "setuptools" in sys.modules:
                 continue
             install_requires.append(req)
 
+
 def main():
     setup(**setup_args)
 
