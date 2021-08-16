@@ -169,6 +169,15 @@ class Scheduler(Process):
         await super().start()
 
     async def close(self):
+        from dask.distributed import Client
+
+        client = Client(address="tcp://127.0.0.1:8989")
+
+        try:
+            client.shutdown()
+        except Exception as ex:
+            raise ex
+
         cmd = "source ~/htc.rc; condor_rm {}.0".format(self.cluster_id)
 
         try:

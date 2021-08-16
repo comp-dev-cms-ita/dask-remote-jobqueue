@@ -44,12 +44,5 @@ adapt = cluster.adapt(minimum=1, maximum=15)
 
 # cluster.scale(jobs=3)
 
-
-def closeme():
-    cluster.close()
-
-
-signal(SIGTERM, closeme)
-
 while True:
     time.sleep(60)
