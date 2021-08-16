@@ -40,9 +40,9 @@ cluster = HTCondorCluster(
     silence_logs="debug",
 )
 
-# adapt = cluster.adapt(minimum=0, maximum=15)
+adapt = cluster.adapt(minimum=0, maximum=15)
 
-cluster.scale(jobs=3)
+#cluster.scale(jobs=3)
 
 
 def closeme():
