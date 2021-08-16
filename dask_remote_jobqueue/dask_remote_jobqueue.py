@@ -6,6 +6,7 @@ import weakref
 import json
 import time
 import tempfile
+import math
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 from subprocess import check_output, STDOUT
@@ -76,10 +77,20 @@ class Scheduler(Process):
         self.cluster_id = None
         super().__init__()
 
-    async def scale(self):
+    def scale(self, n=0, memory=None, cores=None):
         raise NotImplementedError
 
-    async def adapt(self):
+    def adapt(
+        self,
+        *args,
+        minimum=0,
+        maximum=math.inf,
+        minimum_cores: int = None,
+        maximum_cores: int = None,
+        minimum_memory: str = None,
+        maximum_memory: str = None,
+        **kwargs,
+    ):
         raise NotImplementedError
 
     async def start(self):
@@ -180,6 +191,32 @@ class RemoteHTCondor(SpecCluster):
         super().__init__(
             scheduler=sched, asynchronous=asynchronous, workers={}, name="RemoteHTC"
         )
+
+    def scale(self, n=0, memory=None, cores=None):
+        self.scheduler.scale(n=n, memory=memory, cores=cores)
+
+    def adapt(
+        self,
+        *args,
+        minimum=0,
+        maximum=math.inf,
+        minimum_cores: int = None,
+        maximum_cores: int = None,
+        minimum_memory: str = None,
+        maximum_memory: str = None,
+        **kwargs,
+    ):
+        self.scheduler.adapt(
+            *args,
+            minimum=minimum,
+            maximum=maximum,
+            minimum_cores=minimum_cores,
+            maximum_cores=maximum_cores,
+            minimum_memory=minimum_memory,
+            maximum_memory=maximum_memory,
+            **kwargs,
+        )
+        raise NotImplementedError
 
 
 def CreateRemoteHTCondor():
