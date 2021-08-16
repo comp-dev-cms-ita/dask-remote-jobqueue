@@ -42,7 +42,7 @@ cluster = HTCondorCluster(
 
 adapt = cluster.adapt(minimum=1, maximum=15)
 
-#cluster.scale(jobs=3)
+# cluster.scale(jobs=3)
 
 
 def closeme():

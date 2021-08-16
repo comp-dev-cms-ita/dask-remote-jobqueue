@@ -76,6 +76,12 @@ class Scheduler(Process):
         self.cluster_id = None
         super().__init__()
 
+    async def scale(self):
+        raise NotImplementedError
+
+    async def adapt(self):
+        raise NotImplementedError
+
     async def start(self):
 
         with tempfile.TemporaryDirectory() as tmpdirname:
