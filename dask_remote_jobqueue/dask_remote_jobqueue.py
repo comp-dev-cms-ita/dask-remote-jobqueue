@@ -193,7 +193,10 @@ class RemoteHTCondor(SpecCluster):
         )
 
     def scale(self, n=0, memory=None, cores=None):
-        self.scheduler.scale(n=n, memory=memory, cores=cores)
+        try:
+            self.scheduler.scale(n=n, memory=memory, cores=cores)
+        except Exception as ex:
+            raise ex
 
     def adapt(
         self,
@@ -206,30 +209,22 @@ class RemoteHTCondor(SpecCluster):
         maximum_memory: str = None,
         **kwargs,
     ):
-        self.scheduler.adapt(
-            *args,
-            minimum=minimum,
-            maximum=maximum,
-            minimum_cores=minimum_cores,
-            maximum_cores=maximum_cores,
-            minimum_memory=minimum_memory,
-            maximum_memory=maximum_memory,
-            **kwargs,
-        )
-        raise NotImplementedError
+        try:
+            self.scheduler.adapt(
+                *args,
+                minimum=minimum,
+                maximum=maximum,
+                minimum_cores=minimum_cores,
+                maximum_cores=maximum_cores,
+                minimum_memory=minimum_memory,
+                maximum_memory=maximum_memory,
+                **kwargs,
+            )
+        except Exception as ex:
+            raise ex
 
 
 def CreateRemoteHTCondor():
-    # workers = {
-    #     0:{
-    #         "cls": Job,
-    #         "options": {
-    #             "cores": 1,
-    #             "memory": "3GB",
-    #             "disk": "1GB"
-    #         }
-    #     }
-    #     }
     sched = {"cls": Scheduler, "options": {}}  # Use local scheduler for now
 
     return SpecCluster({}, sched, name="SSHCluster")
