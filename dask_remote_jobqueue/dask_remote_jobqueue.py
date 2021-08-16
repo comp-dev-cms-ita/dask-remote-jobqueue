@@ -2,18 +2,15 @@
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
-import weakref
 import json
 import time
 import tempfile
 import math
-from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 from subprocess import check_output, STDOUT
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from distributed.deploy.spec import ProcessInterface, SpecCluster
-from dask_jobqueue.core import Job
+from distributed.deploy.spec import ProcessInterface, SpecCluster, NoOpAwaitable
 
 
 class Process(ProcessInterface):
@@ -78,7 +75,7 @@ class Scheduler(Process):
         super().__init__()
 
     def scale(self, n=0, memory=None, cores=None):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def adapt(
         self,
@@ -91,7 +88,7 @@ class Scheduler(Process):
         maximum_memory: str = None,
         **kwargs,
     ):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     async def start(self):
 
@@ -197,6 +194,9 @@ class RemoteHTCondor(SpecCluster):
             self.scheduler.scale(n=n, memory=memory, cores=cores)
         except Exception as ex:
             raise ex
+
+        if self.asynchronous:
+            return NoOpAwaitable()
 
     def adapt(
         self,
