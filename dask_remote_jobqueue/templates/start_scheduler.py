@@ -27,7 +27,7 @@ cluster = HTCondorCluster(
     job_cls=MyHTCondorJob,
     cores=1,
     memory="3 GB",
-    disk="4 GB",
+    disk="1 GB",
     scheduler_options={
         "host": ":8989",
     },
@@ -40,7 +40,7 @@ cluster = HTCondorCluster(
     silence_logs="debug",
 )
 
-adapt = cluster.adapt(minimum=0, maximum=15)
+#adapt = cluster.adapt(minimum=0, maximum=15)
 
 #cluster.scale(jobs=3)
 
