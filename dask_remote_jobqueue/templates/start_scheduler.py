@@ -50,7 +50,7 @@ import sys
 
 async def tunnel_scheduler():
     connection = await asyncssh.connect(
-        "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username="dciangotasdasd.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
+        "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username="dciangot-asdasd.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
     )
     await connection.forward_remote_port("localhost", 8989, "localhost", 8989)
 
