@@ -52,13 +52,13 @@ async def tunnel_scheduler():
     connection = await asyncssh.connect(
         "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username="dciangot-asdasd.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
     )
-    await connection.forward_remote_port("localhost", 8989, "localhost", 8989)
+    await connection.forward_remote_port("127.0.0.1", 8989, "127.0.0.1", 8989)
 
 async def tunnel_dashboard():
     connection = await asyncssh.connect(
         "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username="dciangot-asdasd.dash.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
     )
-    await connection.forward_remote_port("localhost", 8787, "localhost", 8787)
+    await connection.forward_remote_port("127.0.0.1", 8787, "127.0.01", 8787)
 
 try:
     asyncio.get_event_loop().run_until_complete(tunnel_scheduler())
