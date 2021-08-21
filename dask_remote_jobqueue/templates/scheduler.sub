@@ -4,5 +4,6 @@ log        = scheduler.log
 output     = scheduler.out
 error      = scheduler.error
 transfer_input_files = start_scheduler.py, scheduler.sh, /root/.ca.crt, /root/.token, job_submit.sh
+environment = JHUB_TOKEN=7870c6ee40f0441f873387845da4a4e1,JHUB_USER=dciangot-sdfssdfsdf,JHUB_PORT=8787
 +OWNER = "condor"
 queue

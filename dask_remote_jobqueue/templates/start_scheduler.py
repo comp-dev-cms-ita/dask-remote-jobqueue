@@ -44,5 +44,32 @@ adapt = cluster.adapt(minimum=1, maximum=15)
 
 # cluster.scale(jobs=3)
 
+import asyncssh  # import now to avoid adding to module startup time
+import asyncio
+import sys
+
+async def tunnel_scheduler():
+    connection = await asyncssh.connect(
+        "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username="dciangotasdasd.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
+    )
+    await connection.forward_remote_port("localhost", 8989, "localhost", 8989)
+
+async def tunnel_dashboard():
+    connection = await asyncssh.connect(
+        "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username="dciangot-asdasd.dash.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
+    )
+    await connection.forward_remote_port("localhost", 8787, "localhost", 8787)
+
+try:
+    asyncio.get_event_loop().run_until_complete(tunnel_scheduler())
+except (OSError, asyncssh.Error) as exc:
+    sys.exit('SSH connection failed: ' + str(exc))
+
+try:
+    asyncio.get_event_loop().run_until_complete(tunnel_dashboard())
+except (OSError, asyncssh.Error) as exc:
+    sys.exit('SSH connection failed: ' + str(exc))
+
+
 while True:
     time.sleep(60)

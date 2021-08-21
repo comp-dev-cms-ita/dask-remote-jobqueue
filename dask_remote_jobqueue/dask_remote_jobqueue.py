@@ -21,19 +21,13 @@ class Process(ProcessInterface):
     """
 
     def __init__(self, **kwargs):
-        self.connection = None
-        self.connection_dash = None
 
         super().__init__(**kwargs)
 
     async def start(self):
-        assert self.connection
-        assert self.connection_dash
         await super().start()
 
     async def close(self):
-        self.connection.close()
-        self.connection_dash.close()
         await super().close()
 
     def __repr__(self):
@@ -147,36 +141,19 @@ class Scheduler(Process):
             elif job_status != 2:
                 raise Exception("Scheduler job in error {}".format(job_status))
 
-            startd_ip_classAd = classAd[0].get("StartdIpAddr")
-            if not startd_ip_classAd:
-                raise Exception("Scheduler job running but no StartdIpAddr in ClassAd")
-
-            startd_ip = startd_ip_classAd.split(":")[0].strip("<")
-
-        import asyncssh  # import now to avoid adding to module startup time
-
-        self.connection = await asyncssh.connect(
-            "90.147.75.109", username="root", known_hosts=None
-        )
-        await self.connection.forward_local_port("", 8989, startd_ip, 8989)
-
-        self.connection_dash = await asyncssh.connect(
-            "90.147.75.109", username="root", known_hosts=None
-        )
-        await self.connection.forward_local_port("", 8787, startd_ip, 8787)
-
-        self.address = "localhost:8989"
+        self.address = "dciangot-asdasd.dask-ssh:8989"
+        self.dashboard_address = "dciangot-asdasd.dash.dask-ssh:8989" 
         await super().start()
 
     async def close(self):
-        from dask.distributed import Client
+        #from dask.distributed import Client
 
-        client = Client(address="tcp://127.0.0.1:8989")
+        #client = Client(address="tcp://dciangot-asdasd.dask-ssh:8989")
 
-        try:
-            client.shutdown()
-        except Exception as ex:
-            raise ex
+        #try:
+        #    client.shutdown()
+        #except Exception as ex:
+        #    raise ex
 
         cmd = "source ~/htc.rc; condor_rm {}.0".format(self.cluster_id)
 
