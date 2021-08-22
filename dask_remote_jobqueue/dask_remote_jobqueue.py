@@ -176,9 +176,9 @@ class Scheduler(Process):
 class RemoteHTCondor(SpecCluster):
     def __init__(self, asynchronous=False):
         sched = {"cls": Scheduler, "options": {}}
-        security = Security(tls_ca_file='/etc/ca.crt',
+        security = Security(tls_ca_file='/etc/certs/ca.crt',
                tls_client_cert='/etc/certs/tls.crt',
-               tls_client_key='/etd/certs/tls.key',
+               tls_client_key='/etc/certs/tls.key',
                require_encryption=True)
         super().__init__(
             scheduler=sched, security=security, asynchronous=asynchronous, workers={}, name="RemoteHTC"
