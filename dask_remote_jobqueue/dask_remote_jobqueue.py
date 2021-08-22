@@ -150,8 +150,8 @@ class Scheduler(Process):
             elif job_status != 2:
                 raise Exception("Scheduler job in error {}".format(job_status))
 
-        self.address = "dciangot-asdasd.dask-ssh:8989"
-        self.dashboard_address = "dciangot-asdasd.dash.dask-ssh:8989" 
+        self.address = "dciangot-asdasd.dask-ssh:3443"
+        self.dashboard_address = "dciangot-asdasd.dash.dask-ssh:3443" 
         await super().start()
 
     async def close(self):
