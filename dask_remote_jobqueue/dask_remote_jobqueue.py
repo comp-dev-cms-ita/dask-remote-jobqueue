@@ -10,6 +10,8 @@ from dask_jobqueue.htcondor import HTCondorJob
 from subprocess import check_output, STDOUT
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from distributed.security import Security
+
 from distributed.deploy.spec import ProcessInterface, SpecCluster, NoOpAwaitable
 
 
@@ -66,7 +68,14 @@ class Scheduler(Process):
 
     def __init__(self):
         self.cluster_id = None
-        super().__init__()
+        # TODO: set security and hostname
+        self.hostname = "dciangot-asdasd.dask-ssh"
+        self.dash_hostname = "dciangot-asdasd.dash.dask-ssh"
+        security = Security(tls_ca_file='/etc/ca.crt',
+               tls_client_cert='/etc/certs/tls.crt',
+               tls_client_key='/etd/certs/tls.key',
+               require_encryption=True)
+        super().__init__(security=security)
 
     def scale(self, n=0, memory=None, cores=None):
         raise NotImplementedError()
