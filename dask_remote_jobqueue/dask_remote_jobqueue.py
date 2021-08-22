@@ -68,14 +68,10 @@ class Scheduler(Process):
 
     def __init__(self):
         self.cluster_id = None
-        # TODO: set security and hostname
+        # TODO: hostname
         self.hostname = "dciangot-asdasd.dask-ssh"
         self.dash_hostname = "dciangot-asdasd.dash.dask-ssh"
-        security = Security(tls_ca_file='/etc/ca.crt',
-               tls_client_cert='/etc/certs/tls.crt',
-               tls_client_key='/etd/certs/tls.key',
-               require_encryption=True)
-        super().__init__(security=security)
+        super().__init__()
 
     def scale(self, n=0, memory=None, cores=None):
         raise NotImplementedError()
@@ -180,8 +176,12 @@ class Scheduler(Process):
 class RemoteHTCondor(SpecCluster):
     def __init__(self, asynchronous=False):
         sched = {"cls": Scheduler, "options": {}}
+        security = Security(tls_ca_file='/etc/ca.crt',
+               tls_client_cert='/etc/certs/tls.crt',
+               tls_client_key='/etd/certs/tls.key',
+               require_encryption=True)
         super().__init__(
-            scheduler=sched, asynchronous=asynchronous, workers={}, name="RemoteHTC"
+            scheduler=sched, security=security, asynchronous=asynchronous, workers={}, name="RemoteHTC"
         )
 
     def scale(self, n=0, memory=None, cores=None):
