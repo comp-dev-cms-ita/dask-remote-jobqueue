@@ -179,7 +179,7 @@ class RemoteHTCondor(SpecCluster):
         security = Security(tls_ca_file='/etc/certs/ca.crt',
                tls_client_cert='/etc/certs/tls.crt',
                tls_client_key='/etc/certs/tls.key',
-               require_encryption=True)
+               require_encryption=False)
         super().__init__(
             scheduler=sched, security=security, asynchronous=asynchronous, workers={}, name="RemoteHTC"
         )
