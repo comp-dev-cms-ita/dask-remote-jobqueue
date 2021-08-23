@@ -37,7 +37,7 @@ cluster = HTCondorCluster(
     memory="3 GB",
     disk="1 GB",
     scheduler_options={
-        "host": "127.0.0.1:{}".format(sched_port),
+        "host": ":{}".format(sched_port),
         "dashboard_address": "127.0.0.1:{}".format(dash_port),
     },
     job_extra={
@@ -81,7 +81,7 @@ async def tunnel_dashboard():
         known_hosts=None,
     )
     forwarder = await connection.forward_remote_port(
-        "127.0.0.1", dash_port, "127.0.01", dash_port
+        "127.0.0.1", dash_port, "127.0.0.1", dash_port
     )
     await forwarder.wait_closed()
 
