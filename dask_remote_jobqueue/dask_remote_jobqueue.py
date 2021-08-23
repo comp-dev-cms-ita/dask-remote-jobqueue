@@ -6,6 +6,8 @@ import json
 import time
 import tempfile
 import math
+import asyncssh
+import asyncio
 from dask_jobqueue.htcondor import HTCondorJob
 from subprocess import check_output, STDOUT
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -23,14 +25,16 @@ class Process(ProcessInterface):
     """
 
     def __init__(self, **kwargs):
-
+        self.connection = None
         super().__init__(**kwargs)
 
     async def start(self):
+        assert self.connection
         await super().start()
 
     async def close(self):
         await super().close()
+        self.connection.close()
 
     def __repr__(self):
         return f"<SSH {type(self).__name__}: status={self.status}>"
@@ -146,8 +150,15 @@ class Scheduler(Process):
             elif job_status != 2:
                 raise Exception("Scheduler job in error {}".format(job_status))
 
-        self.address = "dciangot-asdasd.dask-ssh:3443"
-        self.dashboard_address = "dciangot-asdasd.dash.dask-ssh:3443" 
+        self.connection = await asyncssh.connect(
+            "listener.htcondor.svc.cluster.local", port=8122, username="dciangot-asdasd.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
+        )
+        await self.connection.forward_local_port("127.0.0.1", 8989, "127.0.0.1", 8989)
+        await self.connection.forward_local_port("127.0.0.1", 8787, "127.0.01", 8787)
+
+        self.address = "localhost:8989"
+        self.dashboard_address = "localhost:8787"
+        
         await super().start()
 
     async def close(self):
