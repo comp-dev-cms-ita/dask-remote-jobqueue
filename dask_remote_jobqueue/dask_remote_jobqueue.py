@@ -74,9 +74,11 @@ class Scheduler(Process):
     def __init__(self, sched_port=8989, dash_port=8787):
         self.cluster_id = None
         self.name = os.environ.get("JUPYTERHUB_USER") + "-{sched_port}.dask-ssh"
-        self.dash_hostname = os.environ.get("JUPYTERHUB_USER")+ "-{dash_port}.dash.dask-ssh"
+        self.dash_hostname = (
+            os.environ.get("JUPYTERHUB_USER") + "-{dash_port}.dash.dask-ssh"
+        )
         self.sched_port = sched_port
-        self.dash_port =dash_port
+        self.dash_port = dash_port
 
         self.token = os.environ.get("JUPYTERHUB_API_TOKEN")
         super().__init__()
@@ -116,7 +118,14 @@ class Scheduler(Process):
             for f in files:
                 tmpl = env.get_template(f)
                 with open(tmpdirname + "/" + f, "w") as dest:
-                    dest.write(tmpl.render(name=self.name, token=self.token, sched_port=self.sched_port, dash_port=self.dash_port))
+                    dest.write(
+                        tmpl.render(
+                            name=self.name,
+                            token=self.token,
+                            sched_port=self.sched_port,
+                            dash_port=self.dash_port,
+                        )
+                    )
 
             cmd = "source ~/htc.rc; cd {}; condor_submit -spool scheduler.sub".format(
                 tmpdirname
@@ -155,14 +164,22 @@ class Scheduler(Process):
                 raise Exception("Scheduler job in error {}".format(job_status))
 
         self.connection = await asyncssh.connect(
-            "listener.htcondor.svc.cluster.local", port=8122, username=self.name, password=self.token, known_hosts=None
+            "listener.htcondor.svc.cluster.local",
+            port=8122,
+            username=self.name,
+            password=self.token,
+            known_hosts=None,
         )
-        await self.connection.forward_local_port("127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port)
-        await self.connection.forward_local_port("127.0.0.1", self.dash_port, "127.0.01", self.dash_port)
+        await self.connection.forward_local_port(
+            "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
+        )
+        await self.connection.forward_local_port(
+            "127.0.0.1", self.dash_port, "127.0.01", self.dash_port
+        )
 
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
-        
+
         await super().start()
 
     async def close(self):
@@ -190,9 +207,15 @@ class Scheduler(Process):
 
 class RemoteHTCondor(SpecCluster):
     def __init__(self, asynchronous=False):
-        self.sched_port = randrange(20000,40000)
-        self.dashboard_port =  randrange(20000,40000)
-        sched = {"cls": Scheduler, "options": {"sched_port": self.sched_port, "dashboard_port": self.dashboard_port}}
+        self.sched_port = randrange(20000, 40000)
+        self.dashboard_port = randrange(20000, 40000)
+        sched = {
+            "cls": Scheduler,
+            "options": {
+                "sched_port": self.sched_port,
+                "dashboard_port": self.dashboard_port,
+            },
+        }
         super().__init__(
             scheduler=sched, asynchronous=asynchronous, workers={}, name="RemoteHTC"
         )
