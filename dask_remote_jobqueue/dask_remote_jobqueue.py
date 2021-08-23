@@ -7,7 +7,8 @@ import time
 import tempfile
 import math
 import asyncssh
-import asyncio
+import os
+from random import randrange
 from dask_jobqueue.htcondor import HTCondorJob
 from subprocess import check_output, STDOUT
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -70,11 +71,14 @@ class Scheduler(Process):
         dask.distributed.Scheduler class
     """
 
-    def __init__(self):
+    def __init__(self, sched_port=8989, dash_port=8787):
         self.cluster_id = None
-        # TODO: hostname
-        self.hostname = "dciangot-asdasd.dask-ssh"
-        self.dash_hostname = "dciangot-asdasd.dash.dask-ssh"
+        self.name = os.environ.get("JUPYTERHUB_USER") + "-{sched_port}.dask-ssh"
+        self.dash_hostname = os.environ.get("JUPYTERHUB_USER")+ "-{dash_port}.dash.dask-ssh"
+        self.sched_port = sched_port
+        self.dash_port =dash_port
+
+        self.token = os.environ.get("JUPYTERHUB_API_TOKEN")
         super().__init__()
 
     def scale(self, n=0, memory=None, cores=None):
@@ -112,7 +116,7 @@ class Scheduler(Process):
             for f in files:
                 tmpl = env.get_template(f)
                 with open(tmpdirname + "/" + f, "w") as dest:
-                    dest.write(tmpl.render())
+                    dest.write(tmpl.render(name=self.name, token=self.token, sched_port=self.sched_port, dash_port=self.dash_port))
 
             cmd = "source ~/htc.rc; cd {}; condor_submit -spool scheduler.sub".format(
                 tmpdirname
@@ -151,25 +155,25 @@ class Scheduler(Process):
                 raise Exception("Scheduler job in error {}".format(job_status))
 
         self.connection = await asyncssh.connect(
-            "listener.htcondor.svc.cluster.local", port=8122, username="dciangot-asdasd.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
+            "listener.htcondor.svc.cluster.local", port=8122, username=self.name, password=self.token, known_hosts=None
         )
-        await self.connection.forward_local_port("127.0.0.1", 8989, "127.0.0.1", 8989)
-        await self.connection.forward_local_port("127.0.0.1", 8787, "127.0.01", 8787)
+        await self.connection.forward_local_port("127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port)
+        await self.connection.forward_local_port("127.0.0.1", self.dash_port, "127.0.01", self.dash_port)
 
-        self.address = "localhost:8989"
-        self.dashboard_address = "localhost:8787"
+        self.address = "localhost:{}".format(self.sched_port)
+        self.dashboard_address = "localhost:{}".format(self.dash_port)
         
         await super().start()
 
     async def close(self):
-        #from dask.distributed import Client
+        from dask.distributed import Client
 
-        #client = Client(address="tcp://dciangot-asdasd.dask-ssh:8989")
+        client = Client(address="tcp://localhost:{}".format(self.sched_port))
 
-        #try:
-        #    client.shutdown()
-        #except Exception as ex:
-        #    raise ex
+        try:
+            client.shutdown()
+        except Exception as ex:
+            raise ex
 
         cmd = "source ~/htc.rc; condor_rm {}.0".format(self.cluster_id)
 
@@ -186,13 +190,11 @@ class Scheduler(Process):
 
 class RemoteHTCondor(SpecCluster):
     def __init__(self, asynchronous=False):
-        sched = {"cls": Scheduler, "options": {}}
-        security = Security(tls_ca_file='/etc/certs/ca.crt',
-               tls_client_cert='/etc/certs/tls.crt',
-               tls_client_key='/etc/certs/tls.key',
-               require_encryption=False)
+        self.sched_port = randrange(20000,40000)
+        self.dashboard_port =  randrange(20000,40000)
+        sched = {"cls": Scheduler, "options": {"sched_port": self.sched_port, "dashboard_port": self.dashboard_port}}
         super().__init__(
-            scheduler=sched, security=security, asynchronous=asynchronous, workers={}, name="RemoteHTC"
+            scheduler=sched, asynchronous=asynchronous, workers={}, name="RemoteHTC"
         )
 
     def scale(self, n=0, memory=None, cores=None):
@@ -228,9 +230,3 @@ class RemoteHTCondor(SpecCluster):
             )
         except Exception as ex:
             raise ex
-
-
-def CreateRemoteHTCondor():
-    sched = {"cls": Scheduler, "options": {}}  # Use local scheduler for now
-
-    return SpecCluster({}, sched, name="SSHCluster")

@@ -47,19 +47,27 @@ adapt = cluster.adapt(minimum=1, maximum=15)
 import asyncssh  # import now to avoid adding to module startup time
 import asyncio
 import sys
+import os
+
+#JHUB_TOKEN={{ token }},JHUB_USER={{ name }},SCHED_PORT={{ sched_port }},DASH_PORT={{ dash_port }}
+
+token = os.environ.get("JHUB_TOKEN")
+name = os.environ.get("JHUB_USER")
+sched_port = os.environ.get("SCHED_PORT")
+dash_port = os.environ.get("DASH_PORT")
 
 async def tunnel_scheduler():
     connection = await asyncssh.connect(
-        "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username="dciangot-asdasd.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
+        "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username=name, password=token, known_hosts=None
     )
-    forwarder = await connection.forward_remote_port("127.0.0.1", 8989, "127.0.0.1", 8989)
+    forwarder = await connection.forward_remote_port("127.0.0.1", sched_port, "127.0.0.1", sched_port)
     await forwarder.wait_closed()
 
 async def tunnel_dashboard():
     connection = await asyncssh.connect(
-        "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username="dciangot-asdasd.dash.dask-ssh", password="7870c6ee40f0441f873387845da4a4e1", known_hosts=None
+        "jhub.90.147.75.109.myip.cloud.infn.it", port=31022, username=name, password=token, known_hosts=None
     )
-    forwarder = await connection.forward_remote_port("127.0.0.1", 8787, "127.0.01", 8787)
+    forwarder = await connection.forward_remote_port("127.0.0.1", dash_port, "127.0.01", dash_port)
     await forwarder.wait_closed()
 
 async def tunnel():
