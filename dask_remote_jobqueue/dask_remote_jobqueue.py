@@ -73,10 +73,12 @@ class Scheduler(Process):
 
     def __init__(self, sched_port=8989, dashboard_port=8787):
         self.cluster_id = None
-        self.name = os.environ.get("JUPYTERHUB_USER") + "-{}.dask-ssh".format(sched_port)
-        self.dash_hostname = (
-            os.environ.get("JUPYTERHUB_USER") + "-{}.dash.dask-ssh".format(dashboard_port)
+        self.name = os.environ.get("JUPYTERHUB_USER") + "-{}.dask-ssh".format(
+            sched_port
         )
+        self.dash_hostname = os.environ.get(
+            "JUPYTERHUB_USER"
+        ) + "-{}.dash.dask-ssh".format(dashboard_port)
         self.sched_port = sched_port
         self.dash_port = dashboard_port
 

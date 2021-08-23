@@ -23,6 +23,7 @@ class MyHTCondorJob(HTCondorJob):
         self.submit_command = "./job_submit.sh"
         self.executable = "/bin/bash"
 
+
 # JHUB_TOKEN={{ token }},JHUB_USER={{ name }},SCHED_PORT={{ sched_port }},DASH_PORT={{ dash_port }}
 
 token = os.environ.get("JHUB_TOKEN")
@@ -55,6 +56,7 @@ adapt = cluster.adapt(minimum=1, maximum=15)
 import asyncssh  # import now to avoid adding to module startup time
 import asyncio
 import sys
+
 
 async def tunnel_scheduler():
     connection = await asyncssh.connect(
