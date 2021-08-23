@@ -4,6 +4,7 @@
 # https://opensource.org/licenses/MIT
 import time
 import dask
+import os
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 from signal import SIGTERM, signal
@@ -22,6 +23,12 @@ class MyHTCondorJob(HTCondorJob):
         self.submit_command = "./job_submit.sh"
         self.executable = "/bin/bash"
 
+# JHUB_TOKEN={{ token }},JHUB_USER={{ name }},SCHED_PORT={{ sched_port }},DASH_PORT={{ dash_port }}
+
+token = os.environ.get("JHUB_TOKEN")
+name = os.environ.get("JHUB_USER")
+sched_port = int(os.environ.get("SCHED_PORT"))
+dash_port = int(os.environ.get("DASH_PORT"))
 
 cluster = HTCondorCluster(
     job_cls=MyHTCondorJob,
@@ -29,7 +36,8 @@ cluster = HTCondorCluster(
     memory="3 GB",
     disk="1 GB",
     scheduler_options={
-        "host": ":8989",
+        "host": "127.0.0.1:{}".format(sched_port),
+        "dashboard_address": "127.0.0.1:{}".format(dash_port),
     },
     job_extra={
         "+OWNER": '"condor"',
@@ -47,15 +55,6 @@ adapt = cluster.adapt(minimum=1, maximum=15)
 import asyncssh  # import now to avoid adding to module startup time
 import asyncio
 import sys
-import os
-
-# JHUB_TOKEN={{ token }},JHUB_USER={{ name }},SCHED_PORT={{ sched_port }},DASH_PORT={{ dash_port }}
-
-token = os.environ.get("JHUB_TOKEN")
-name = os.environ.get("JHUB_USER")
-sched_port = os.environ.get("SCHED_PORT")
-dash_port = os.environ.get("DASH_PORT")
-
 
 async def tunnel_scheduler():
     connection = await asyncssh.connect(
