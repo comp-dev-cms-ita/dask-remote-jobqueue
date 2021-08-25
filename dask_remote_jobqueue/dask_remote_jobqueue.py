@@ -60,15 +60,10 @@ class Scheduler(Process):
     """A Remote Dask Scheduler controlled via HTCondor
     Parameters
     ----------
-    address: str
-        The hostname where we should run this worker
-    connect_options: dict
-        kwargs to be passed to asyncssh connections
-    remote_python: str
-        Path to Python on remote node to run this scheduler.
-    kwargs: dict
-        These will be passed through the dask-scheduler CLI to the
-        dask.distributed.Scheduler class
+    sched_port: int
+        The port to bind for scheduler
+    dashboard_port: int
+        The port to bind for dask dasahboard
     """
 
     def __init__(self, sched_port=8989, dashboard_port=8787):
