@@ -24,7 +24,8 @@ class MyHTCondorJob(HTCondorJob):
         self.executable = "/bin/bash"
 
 
-# JHUB_TOKEN={{ token }},JHUB_USER={{ name }},SCHED_PORT={{ sched_port }},DASH_PORT={{ dash_port }}
+# JHUB_TOKEN={{ token }},JHUB_USER={{ name }},SCHED_PORT={{ sched_port }},DASH_PORT={{ dash_port }},
+# RT={{ refresh_token }},IAM_SERVER={{ iam_server }},IAM_CLIENT_ID={{ client_id }},IAM_CLIENT_SECRET={{ client_secret }}
 
 token = os.environ.get("JHUB_TOKEN")
 name = os.environ.get("JHUB_USER")

@@ -78,6 +78,10 @@ class Scheduler(Process):
         self.dash_port = dashboard_port
 
         self.token = os.environ.get("JUPYTERHUB_API_TOKEN")
+        self.refresh_token = os.environ.get("REFRESH_TOKEN")
+        self.iam_server = os.environ.get("IAM_SERVER")
+        self.client_id = os.environ.get("IAM_CLIENT_ID")
+        self.client_secret = os.environ.get("IAM_CLIENT_SECRET")
         super().__init__()
 
     def scale(self, n=0, memory=None, cores=None):
@@ -121,6 +125,10 @@ class Scheduler(Process):
                             token=self.token,
                             sched_port=self.sched_port,
                             dash_port=self.dash_port,
+                            refresh_token=self.refresh_token,
+                            iam_server=self.iam_server,
+                            client_id=self.client_id,
+                            client_secret=self.client_secret,
                         )
                     )
 
