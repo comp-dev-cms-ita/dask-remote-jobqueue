@@ -44,18 +44,6 @@ class Process(ProcessInterface):
 from dask_jobqueue.htcondor import HTCondorJob
 
 
-class Job(HTCondorJob):
-    def __init__(self, *args, **kwargs):
-        super().__init__(
-            *args,
-            **kwargs,
-            python="source /usr/local/share/root6/bin/thisroot.sh ; /usr/bin/python3",
-        )
-        self.submit_command = "./sched_submit.sh"
-        # self._scheduler = "tcp://90.147.75.109:8989"
-        self.executable = "/bin/bash"
-
-
 class Scheduler(Process):
     """A Remote Dask Scheduler controlled via HTCondor
     Parameters
@@ -66,7 +54,7 @@ class Scheduler(Process):
         The port to bind for dask dasahboard
     """
 
-    def __init__(self, sched_port=8989, dashboard_port=8787):
+    def __init__(self, sched_port=8989, dashboard_port=8787, ssh_namespace="default"):
         self.cluster_id = None
         self.name = os.environ.get("JUPYTERHUB_USER") + "-{}.dask-ssh".format(
             sched_port
@@ -76,6 +64,7 @@ class Scheduler(Process):
         ) + "-{}.dash.dask-ssh".format(dashboard_port)
         self.sched_port = sched_port
         self.dash_port = dashboard_port
+        self.sshNamespace = ssh_namespace
 
         self.token = os.environ.get("JUPYTERHUB_API_TOKEN")
         self.refresh_token = os.environ.get("REFRESH_TOKEN")
@@ -169,7 +158,7 @@ class Scheduler(Process):
                 raise Exception("Scheduler job in error {}".format(job_status))
 
         self.connection = await asyncssh.connect(
-            "listener.htcondor.svc.cluster.local",
+            "sshListener.%s.svc.cluster.local" % self.sshNamespace,
             port=8122,
             username=self.name,
             password=self.token,
@@ -211,7 +200,9 @@ class Scheduler(Process):
 
 
 class RemoteHTCondor(SpecCluster):
-    def __init__(self, asynchronous=False):
+    def __init__(self, asynchronous=False, ssh_namespace="default"):
+        if os.environ.get("SSH_NAMESPACE"):
+             ssh_namespace = os.environ.get("SSH_NAMESPACE")
         self.sched_port = randrange(20000, 40000)
         self.dashboard_port = randrange(20000, 40000)
         sched = {
@@ -219,6 +210,7 @@ class RemoteHTCondor(SpecCluster):
             "options": {
                 "sched_port": self.sched_port,
                 "dashboard_port": self.dashboard_port,
+                "ssh_namespace": ssh_namespace, 
             },
         }
         super().__init__(
