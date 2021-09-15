@@ -202,7 +202,7 @@ class Scheduler(Process):
 class RemoteHTCondor(SpecCluster):
     def __init__(self, asynchronous=False, ssh_namespace="default"):
         if os.environ.get("SSH_NAMESPACE"):
-             ssh_namespace = os.environ.get("SSH_NAMESPACE")
+            ssh_namespace = os.environ.get("SSH_NAMESPACE")
         self.sched_port = randrange(20000, 40000)
         self.dashboard_port = randrange(20000, 40000)
         sched = {
@@ -210,7 +210,7 @@ class RemoteHTCondor(SpecCluster):
             "options": {
                 "sched_port": self.sched_port,
                 "dashboard_port": self.dashboard_port,
-                "ssh_namespace": ssh_namespace, 
+                "ssh_namespace": ssh_namespace,
             },
         }
         super().__init__(
