@@ -175,7 +175,7 @@ class Scheduler(Process):
                 raise Exception("Scheduler job in error {}".format(job_status))
 
         self.connection = await asyncssh.connect(
-            "sshListener.%s.svc.cluster.local" % self.sshNamespace,
+            "ssh-listener.%s.svc.cluster.local" % self.sshNamespace,
             port=8122,
             username=self.name,
             password=self.token,
