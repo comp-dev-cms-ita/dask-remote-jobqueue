@@ -71,7 +71,7 @@ import sys
 
 async def tunnel_scheduler():
     connection = await asyncssh.connect(
-        "jhub.90.147.75.109.myip.cloud.infn.it",
+        "jhub.131.154.96.124.myip.cloud.infn.it",
         port=31022,
         username=name,
         password=token,
@@ -85,7 +85,7 @@ async def tunnel_scheduler():
 
 async def tunnel_dashboard():
     connection = await asyncssh.connect(
-        "jhub.90.147.75.109.myip.cloud.infn.it",
+        "jhub.131.154.96.124.myip.cloud.infn.it",
         port=31022,
         username=name,
         password=token,
