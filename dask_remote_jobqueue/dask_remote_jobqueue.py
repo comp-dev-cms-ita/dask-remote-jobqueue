@@ -191,6 +191,8 @@ class Scheduler(Process):
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
 
+        time.sleep(60)
+
         await super().start()
 
     async def close(self):
