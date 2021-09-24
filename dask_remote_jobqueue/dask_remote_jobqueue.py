@@ -3,6 +3,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import json
+from re import I
 import time
 import tempfile
 import math
@@ -191,6 +192,7 @@ class Scheduler(Process):
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
 
+        # TODO: ugly... check sched status somehow
         time.sleep(60)
 
         await super().start()
