@@ -4,6 +4,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh
+conda activate cms-dodas
+
+source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh
+
 export _condor_AUTH_SSL_CLIENT_CAFILE={{ htc_ca }}
 export _condor_TOOL_DEBUG={{ htc_debug }}
 export _condor_COLLECTOR_HOST={{ htc_collector }}

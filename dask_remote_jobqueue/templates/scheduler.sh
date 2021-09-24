@@ -20,4 +20,9 @@ oidc-gen dodas --issuer $IAM_SERVER \
 
 while true; do oidc-token dodas --time 1200 > .token; sleep 600; done &
 
+source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh
+conda activate cms-dodas
+
+source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh
+
 python3 start_scheduler.py
