@@ -126,7 +126,7 @@ class Scheduler(Process):
             )
 
             try:
-                cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+                cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=os.environ)
             except Exception as ex:
                 raise ex
 
