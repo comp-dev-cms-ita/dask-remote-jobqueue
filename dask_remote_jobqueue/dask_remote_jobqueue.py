@@ -66,6 +66,16 @@ class Scheduler(Process):
         self.dash_port = dashboard_port
         self.sshNamespace = ssh_namespace
 
+        self.htc_ca = "$PWD/ca.crt" 
+        #os.environ.get("_condor_AUTH_SSL_CLIENT_CAFILE")
+        self.htc_debug = os.environ.get("_condor_TOOL_DEBUG")
+        self.htc_collector = os.environ.get("_condor_COLLECTOR_HOST")
+        self.htc_schedd_host = os.environ.get("_condor_SCHEDD_HOST")
+        self.htc_schedd_name = os.environ.get("_condor_SCHEDD_NAME")
+        self.htc_scitoken_file = "$PWD/token"
+        #os.environ.get("_condor_SCITOKENS_FILE")
+        self.htc_sec_method = os.environ.get("_condor_SEC_DEFAULT_AUTHENTICATION_METHODS")
+
         self.token = os.environ.get("JUPYTERHUB_API_TOKEN")
         self.refresh_token = os.environ.get("REFRESH_TOKEN")
         self.iam_server = os.environ.get("IAM_SERVER")
@@ -108,8 +118,7 @@ class Scheduler(Process):
             for f in files:
                 tmpl = env.get_template(f)
                 with open(tmpdirname + "/" + f, "w") as dest:
-                    dest.write(
-                        tmpl.render(
+                    render = tmpl.render(
                             name=self.name,
                             token=self.token,
                             sched_port=self.sched_port,
@@ -118,8 +127,16 @@ class Scheduler(Process):
                             iam_server=self.iam_server,
                             client_id=self.client_id,
                             client_secret=self.client_secret,
+                            htc_ca=self.htc_ca,
+                            htc_debug=self.htc_debug,
+                            htc_collector=self.htc_collector,
+                            htc_schedd_host=self.htc_schedd_host,
+                            htc_schedd_name=self.htc_schedd_name,
+                            htc_scitoken_file=self.htc_scitoken_file,
+                            htc_sec_method=self.htc_sec_method
                         )
-                    )
+                    print(render)
+                    dest.write(render)
 
             cmd = "cd {}; condor_submit -spool scheduler.sub".format(
                 tmpdirname
