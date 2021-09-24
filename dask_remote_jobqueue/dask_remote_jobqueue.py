@@ -135,7 +135,7 @@ class Scheduler(Process):
                             htc_scitoken_file=self.htc_scitoken_file,
                             htc_sec_method=self.htc_sec_method
                         )
-                    print(render)
+                    #print(render)
                     dest.write(render)
 
             cmd = "cd {}; condor_submit -spool scheduler.sub".format(
