@@ -18,7 +18,7 @@ class MyHTCondorJob(HTCondorJob):
         super().__init__(
             *args,
             **kwargs,
-            python="source /usr/local/share/root6/bin/thisroot.sh ; /usr/bin/python3",
+            python="source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh; /usr/bin/python3",
         )
         self.submit_command = "./job_submit.sh"
         self.executable = "/bin/bash"
