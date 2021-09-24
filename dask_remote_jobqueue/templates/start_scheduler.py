@@ -26,7 +26,17 @@ class MyHTCondorJob(HTCondorJob):
 
 # JHUB_TOKEN={{ token }},JHUB_USER={{ name }},SCHED_PORT={{ sched_port }},DASH_PORT={{ dash_port }},
 # RT={{ refresh_token }},IAM_SERVER={{ iam_server }},IAM_CLIENT_ID={{ client_id }},IAM_CLIENT_SECRET={{ client_secret }}
+#_condor_AUTH_SSL_CLIENT_CAFILE={{ htc_ca }};_condor_TOOL_DEBUG={{ htc_debug }};_condor_COLLECTOR_HOST={{ htc_collector }}; _condor_SCHEDD_HOST={{ htc_schedd_host }};_condor_SCHEDD_NAME={{ htc_schedd_name }};_condor_SCITOKENS_FILE={{ htc_scitoken_file }};_condor_SEC_DEFAULT_AUTHENTICATION_METHODS={{ htc_sec_method}}
 
+htc_ca = "$PWD/ca.crt" 
+#os.environ.get("_condor_AUTH_SSL_CLIENT_CAFILE")
+htc_debug = os.environ.get("_condor_TOOL_DEBUG")
+htc_collector = os.environ.get("_condor_COLLECTOR_HOST")
+htc_schedd_host = os.environ.get("_condor_SCHEDD_HOST")
+htc_schedd_name = os.environ.get("_condor_SCHEDD_NAME")
+htc_scitoken_file = "$PWD/token"
+#os.environ.get("_condor_SCITOKENS_FILE")
+htc_sec_method = os.environ.get("_condor_SEC_DEFAULT_AUTHENTICATION_METHODS")
 token = os.environ.get("JHUB_TOKEN")
 name = os.environ.get("JHUB_USER")
 sched_port = int(os.environ.get("SCHED_PORT"))
