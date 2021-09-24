@@ -21,5 +21,4 @@ oidc-gen dodas --issuer $IAM_SERVER \
 
 while true; do oidc-token dodas --time 1200 > .token; sleep 600; done &
 
-source /usr/local/share/root6/bin/thisroot.sh
 python3 start_scheduler.py
