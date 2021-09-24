@@ -121,7 +121,7 @@ class Scheduler(Process):
                         )
                     )
 
-            cmd = "source ~/htc.rc; cd {}; condor_submit -spool scheduler.sub".format(
+            cmd = "cd {}; condor_submit -spool scheduler.sub".format(
                 tmpdirname
             )
 
@@ -141,7 +141,7 @@ class Scheduler(Process):
         job_status = 1
         while job_status == 1:
             time.sleep(30)
-            cmd = "source ~/htc.rc; condor_q {}.0 -json".format(self.cluster_id)
+            cmd = "condor_q {}.0 -json".format(self.cluster_id)
 
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
 
@@ -186,7 +186,7 @@ class Scheduler(Process):
         except Exception as ex:
             raise ex
 
-        cmd = "source ~/htc.rc; condor_rm {}.0".format(self.cluster_id)
+        cmd = "condor_rm {}.0".format(self.cluster_id)
 
         try:
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
