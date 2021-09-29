@@ -21,10 +21,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install setuptools wheel twine
-      - name: Build and publish
-        env:
-          TWINE_USERNAME: "__token__"
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      - name: Build
         run: |
           python setup.py sdist bdist_wheel
-          twine upload dist/*
+      - name: Upload packages
+        uses: alexellis/upload-assets@0.2.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          asset_paths: '["dist/*.tar.gz", "dist/*.whl"]'
