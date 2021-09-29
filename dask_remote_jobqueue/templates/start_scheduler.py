@@ -2,15 +2,18 @@
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
-import time
-import dask
+import logging
 import os
+import time
+from signal import SIGTERM, signal
+
+import dask
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
-from signal import SIGTERM, signal
 
 # dask.config.set({"distributed.worker.memory.spill": False})
 # dask.config.set({"distributed.worker.memory.target": False})
+logger = logging.getLogger(__name__)
 
 
 class MyHTCondorJob(HTCondorJob):
@@ -64,12 +67,14 @@ adapt = cluster.adapt(minimum=1, maximum=15)
 
 # cluster.scale(jobs=3)
 
-import asyncssh  # import now to avoid adding to module startup time
 import asyncio
 import sys
 
+import asyncssh  # import now to avoid adding to module startup time
+
 
 async def tunnel_scheduler():
+    logger.info("start tunnel scheduler")
     connection = await asyncssh.connect(
         "jhub.131.154.96.124.myip.cloud.infn.it",
         port=31022,
@@ -84,6 +89,7 @@ async def tunnel_scheduler():
 
 
 async def tunnel_dashboard():
+    logger.info("start tunnel dashboard")
     connection = await asyncssh.connect(
         "jhub.131.154.96.124.myip.cloud.infn.it",
         port=31022,
@@ -98,6 +104,7 @@ async def tunnel_dashboard():
 
 
 async def tunnel():
+    logger.info("start tunnels")
     f1 = loop.create_task(tunnel_scheduler())
     f2 = loop.create_task(tunnel_dashboard())
     await asyncio.wait([f1, f2])
@@ -105,6 +112,8 @@ async def tunnel():
 
 try:
     loop = asyncio.get_event_loop()
+    logger.info("start main loop")
     loop.run_until_complete(tunnel())
 except (OSError, asyncssh.Error) as exc:
+    logger.error(exc)
     sys.exit("SSH connection failed: " + str(exc))
