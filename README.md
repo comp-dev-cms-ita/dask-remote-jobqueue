@@ -28,4 +28,4 @@ A custom dask remote jobqueue for HTCondor, using [ssh forwarding via ssh-jhub-f
                                                                     |             +----+       +----+  |
                                                                     |                                  |
                                                                     +----------------------------------+
-``` 
+```
