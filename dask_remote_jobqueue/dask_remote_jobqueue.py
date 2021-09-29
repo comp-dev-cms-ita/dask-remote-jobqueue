@@ -3,20 +3,21 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import json
-from re import I
-import time
-import tempfile
+import logging
 import math
-import asyncssh
 import os
+import tempfile
+import time
 from random import randrange
-from dask_jobqueue.htcondor import HTCondorJob
-from subprocess import check_output, STDOUT
+from re import I
+from subprocess import STDOUT, check_output
+
+import asyncssh
+from distributed.deploy.spec import NoOpAwaitable, ProcessInterface, SpecCluster
+from distributed.security import Security
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from distributed.security import Security
-
-from distributed.deploy.spec import ProcessInterface, SpecCluster, NoOpAwaitable
+logger = logging.getLogger(__name__)
 
 
 class Process(ProcessInterface):
@@ -40,9 +41,6 @@ class Process(ProcessInterface):
 
     def __repr__(self):
         return f"<SSH {type(self).__name__}: status={self.status}>"
-
-
-from dask_jobqueue.htcondor import HTCondorJob
 
 
 class Scheduler(Process):
@@ -146,15 +144,20 @@ class Scheduler(Process):
             try:
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=os.environ)
             except Exception as ex:
+                logger.error(ex)
                 raise ex
 
             try:
                 self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
             except:
-                raise Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                logger.error(ex)
+                raise ex
 
             if not self.cluster_id:
-                raise Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                logger.error(ex)
+                raise ex
 
         job_status = 1
         while job_status == 1:
@@ -166,14 +169,18 @@ class Scheduler(Process):
             try:
                 classAd = json.loads(cmd_out)
             except:
-                raise Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
+                ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
+                logger.error(ex)
+                raise ex
 
             job_status = classAd[0].get("JobStatus")
             if job_status == 1:
                 # logger.info("Job {cluster_id}.0 still idle")
                 continue
             elif job_status != 2:
-                raise Exception("Scheduler job in error {}".format(job_status))
+                ex = Exception("Scheduler job in error {}".format(job_status))
+                logger.error(ex)
+                raise ex
 
         self.connection = await asyncssh.connect(
             "ssh-listener.%s.svc.cluster.local" % self.sshNamespace,
@@ -205,6 +212,7 @@ class Scheduler(Process):
         try:
             client.shutdown()
         except Exception as ex:
+            logger.error(ex)
             raise ex
 
         cmd = "condor_rm {}.0".format(self.cluster_id)
@@ -212,6 +220,7 @@ class Scheduler(Process):
         try:
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
         except Exception as ex:
+            logger.error(ex)
             raise ex
 
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
@@ -242,6 +251,7 @@ class RemoteHTCondor(SpecCluster):
         try:
             self.scheduler.scale(n=n, memory=memory, cores=cores)
         except Exception as ex:
+            logger.error(ex)
             raise ex
 
         if self.asynchronous:
@@ -270,4 +280,5 @@ class RemoteHTCondor(SpecCluster):
                 **kwargs,
             )
         except Exception as ex:
+            logger.error(ex)
             raise ex
