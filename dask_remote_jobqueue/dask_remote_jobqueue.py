@@ -13,6 +13,8 @@ from re import I
 from subprocess import STDOUT, check_output
 
 import asyncssh
+from dask import distributed
+from dask.distributed import Client
 from distributed.deploy.spec import NoOpAwaitable, ProcessInterface, SpecCluster
 from distributed.security import Security
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -161,7 +163,7 @@ class Scheduler(Process):
 
         job_status = 1
         while job_status == 1:
-            time.sleep(30)
+            time.sleep(16)
             cmd = "condor_q {}.0 -json".format(self.cluster_id)
 
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
@@ -199,18 +201,22 @@ class Scheduler(Process):
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
 
-        # TODO: ugly... check sched status somehow
-        time.sleep(60)
+        try:
+            client = Client(address="tcp://localhost:{}".format(self.sched_port))
+            if client.status == "running":
+                client.close()
+        except Exception as ex:
+            logging.error(ex)
+            raise ex
 
         await super().start()
 
     async def close(self):
-        from dask.distributed import Client
-
         client = Client(address="tcp://localhost:{}".format(self.sched_port))
-
         try:
             client.shutdown()
+        except distributed.comm.core.CommClosedError:
+            client.close()
         except Exception as ex:
             logger.error(ex)
             raise ex
