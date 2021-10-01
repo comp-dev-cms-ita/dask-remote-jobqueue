@@ -38,7 +38,7 @@ class Process(ProcessInterface):
         if self.connection is not None:
             logger.debug("Connection made...")
 
-        await super().start()
+        # await super().start()
 
         time.sleep(6)
 
@@ -52,7 +52,8 @@ class Process(ProcessInterface):
         #     raise ex
 
     async def close(self):
-        await super().close()
+        # await super().close()
+
         self.connection.close()
 
     def __repr__(self):
@@ -231,7 +232,7 @@ class Scheduler(Process):
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
 
-        await super().start()
+        # await super().start()
 
     @logger.catch
     async def close(self):
@@ -253,7 +254,7 @@ class Scheduler(Process):
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
-        await super().close()
+        # await super().close()
 
 
 class RemoteHTCondor(SpecCluster):
@@ -269,12 +270,13 @@ class RemoteHTCondor(SpecCluster):
             "cls": Scheduler,
             "options": {
                 "sched_port": self.sched_port,
+                "dashboard": True,
                 "dashboard_port": self.dashboard_port,
                 "ssh_namespace": ssh_namespace,
             },
         }
         super().__init__(
-            scheduler=sched, asynchronous=asynchronous, workers={}, name="RemoteHTC"
+            name="RemoteHTC", scheduler=sched, asynchronous=asynchronous, workers={}
         )
 
     @logger.catch
