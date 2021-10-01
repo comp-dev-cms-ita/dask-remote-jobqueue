@@ -52,9 +52,11 @@ class Process(ProcessInterface):
         #     raise ex
 
     async def close(self):
-        # await super().close()
+        await super().close()
 
-        self.connection.close()
+        if self.connection is not None:
+            logger.debug("Connection close...")
+            self.connection.close()
 
     def __repr__(self):
         return f"<SSH {type(self).__name__}: status={self.status}>"
@@ -243,24 +245,30 @@ class Scheduler(Process):
     @logger.catch
     async def close(self):
         client = Client(address="tcp://localhost:{}".format(self.sched_port))
+
+        logger.debug(f"client: {client}")
         try:
+            logger.debug("client shutdown")
             client.shutdown()
         except distributed.comm.core.CommClosedError:
+            logger.debug("client close")
             client.close()
         except Exception as ex:
             raise ex
 
         cmd = "condor_rm {}.0".format(self.cluster_id)
+        logger.debug(cmd)
 
         try:
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+            logger.debug(str(cmd_out))
         except Exception as ex:
             raise ex
 
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
-        # await super().close()
+        await super().close()
 
 
 class RemoteHTCondor(SpecCluster):
