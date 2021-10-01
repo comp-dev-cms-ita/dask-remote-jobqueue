@@ -206,7 +206,7 @@ class Scheduler(Process):
             if client.status == "running":
                 client.close()
         except Exception as ex:
-            logging.error(ex)
+            logger.error(ex)
             raise ex
 
         await super().start()
