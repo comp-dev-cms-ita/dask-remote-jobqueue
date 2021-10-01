@@ -62,6 +62,11 @@ class Process(ProcessInterface):
         return f"<SSH {type(self).__name__}: status={self.status}>"
 
 
+class InnSchedulerRepr(object):
+    def __init__(self, addr: str):
+        self.address = addr
+
+
 class Scheduler(Process):
     """A Remote Dask Scheduler controlled via HTCondor
     Parameters
@@ -236,6 +241,7 @@ class Scheduler(Process):
 
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
+        self.scheduler = InnSchedulerRepr(self.address)
 
         logger.debug(f"address: {self.address}")
         logger.debug(f"dashboard_address: {self.dashboard_address}")
