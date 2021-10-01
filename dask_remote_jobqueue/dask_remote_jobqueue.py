@@ -154,19 +154,25 @@ class Scheduler(Process):
                         htc_scitoken_file=self.htc_scitoken_file,
                         htc_sec_method=self.htc_sec_method,
                     )
+                    logger.debug(dest.name)
+                    logger.debug(render)
                     # print(render)
                     dest.write(render)
 
             cmd = "cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
 
             try:
+                logger.debug(cmd)
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=os.environ)
             except Exception as ex:
                 raise ex
 
+            logger.debug(str(cmd_out))
+
             try:
                 self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
-            except:
+                logger.debug(self.cluster_id)
+            except Exception:
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
                 raise ex
 
@@ -176,18 +182,24 @@ class Scheduler(Process):
 
         job_status = 1
         while job_status == 1:
-            time.sleep(60)
+            logger.debug("Check job status")
             cmd = "condor_q {}.0 -json".format(self.cluster_id)
+            logger.debug(cmd)
 
+            time.sleep(28)
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+
+            logger.debug(cmd_out)
 
             try:
                 classAd = json.loads(cmd_out)
+                logger.debug(f"classAd: {classAd}")
             except Exception:
                 ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
                 raise ex
 
             job_status = classAd[0].get("JobStatus")
+            logger.debug(f"job_status: {job_status}")
             if job_status == 1:
                 # logger.info("Job {cluster_id}.0 still idle")
                 continue
