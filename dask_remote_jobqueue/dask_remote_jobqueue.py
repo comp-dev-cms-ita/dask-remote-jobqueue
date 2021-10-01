@@ -229,6 +229,9 @@ class Scheduler(Process):
             "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
         )
 
+        logger.debug("Wait for connections...")
+        time.sleep(42)
+
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
 
