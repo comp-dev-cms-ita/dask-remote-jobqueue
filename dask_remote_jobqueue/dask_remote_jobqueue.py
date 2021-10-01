@@ -270,7 +270,6 @@ class RemoteHTCondor(SpecCluster):
             "cls": Scheduler,
             "options": {
                 "sched_port": self.sched_port,
-                "dashboard": True,
                 "dashboard_port": self.dashboard_port,
                 "ssh_namespace": ssh_namespace,
             },
