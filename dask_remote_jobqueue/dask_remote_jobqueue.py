@@ -196,7 +196,7 @@ class Scheduler(Process):
                 raise ex
 
         self.connection = await asyncssh.connect(
-            "ssh-listener.%s.svc.cluster.local" % self.sshNamespace,
+            f"ssh-listener.{self.sshNamespace}.svc.cluster.local",
             port=8122,
             username=self.name,
             password=self.token,
