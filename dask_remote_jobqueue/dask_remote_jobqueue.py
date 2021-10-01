@@ -38,9 +38,9 @@ class Process(ProcessInterface):
         if self.connection is not None:
             logger.debug("Connection made...")
 
-        # await super().start()
+        await super().start()
 
-        time.sleep(6)
+        # time.sleep(6)
 
         # try:
         #     client = Client(
