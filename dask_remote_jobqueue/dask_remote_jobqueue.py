@@ -3,7 +3,6 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import json
-import logging
 import math
 import os
 import tempfile
@@ -18,8 +17,7 @@ from dask.distributed import Client
 from distributed.deploy.spec import NoOpAwaitable, ProcessInterface, SpecCluster
 from distributed.security import Security
 from jinja2 import Environment, PackageLoader, select_autoescape
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class Process(ProcessInterface):
@@ -102,6 +100,7 @@ class Scheduler(Process):
     ):
         raise NotImplementedError()
 
+    @logger.catch
     async def start(self):
 
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -146,19 +145,16 @@ class Scheduler(Process):
             try:
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=os.environ)
             except Exception as ex:
-                logger.error(ex)
                 raise ex
 
             try:
                 self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
             except:
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
-                logger.error(ex)
                 raise ex
 
             if not self.cluster_id:
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
-                logger.error(ex)
                 raise ex
 
         job_status = 1
@@ -172,7 +168,6 @@ class Scheduler(Process):
                 classAd = json.loads(cmd_out)
             except:
                 ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
-                logger.error(ex)
                 raise ex
 
             job_status = classAd[0].get("JobStatus")
@@ -181,7 +176,6 @@ class Scheduler(Process):
                 continue
             elif job_status != 2:
                 ex = Exception("Scheduler job in error {}".format(job_status))
-                logger.error(ex)
                 raise ex
 
         self.connection = await asyncssh.connect(
@@ -206,11 +200,11 @@ class Scheduler(Process):
             if client.status == "running":
                 client.close()
         except Exception as ex:
-            logger.error(ex)
             raise ex
 
         await super().start()
 
+    @logger.catch
     async def close(self):
         client = Client(address="tcp://localhost:{}".format(self.sched_port))
         try:
@@ -218,7 +212,6 @@ class Scheduler(Process):
         except distributed.comm.core.CommClosedError:
             client.close()
         except Exception as ex:
-            logger.error(ex)
             raise ex
 
         cmd = "condor_rm {}.0".format(self.cluster_id)
@@ -226,7 +219,6 @@ class Scheduler(Process):
         try:
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
         except Exception as ex:
-            logger.error(ex)
             raise ex
 
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
@@ -237,6 +229,9 @@ class Scheduler(Process):
 
 class RemoteHTCondor(SpecCluster):
     def __init__(self, asynchronous=False, ssh_namespace="default"):
+
+        logger.add("/var/log/RemoteHTCondor.log")
+
         if os.environ.get("SSH_NAMESPACE"):
             ssh_namespace = os.environ.get("SSH_NAMESPACE")
         self.sched_port = randrange(20000, 40000)
@@ -253,16 +248,17 @@ class RemoteHTCondor(SpecCluster):
             scheduler=sched, asynchronous=asynchronous, workers={}, name="RemoteHTC"
         )
 
+    @logger.catch
     def scale(self, n=0, memory=None, cores=None):
         try:
             self.scheduler.scale(n=n, memory=memory, cores=cores)
         except Exception as ex:
-            logger.error(ex)
             raise ex
 
         if self.asynchronous:
             return NoOpAwaitable()
 
+    @logger.catch
     def adapt(
         self,
         *args,
@@ -286,5 +282,4 @@ class RemoteHTCondor(SpecCluster):
                 **kwargs,
             )
         except Exception as ex:
-            logger.error(ex)
             raise ex
