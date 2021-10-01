@@ -226,11 +226,14 @@ class Scheduler(Process):
             "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
         )
         await self.connection.forward_local_port(
-            "127.0.0.1", self.dash_port, "127.0.01", self.dash_port
+            "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
         )
 
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
+
+        logger.debug(f"address: {self.address}")
+        logger.debug(f"dashboard_address: {self.dashboard_address}")
 
         await super().start()
 
