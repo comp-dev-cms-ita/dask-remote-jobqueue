@@ -28,12 +28,26 @@ class Process(ProcessInterface):
     """
 
     def __init__(self, **kwargs):
-        self.connection = None
         super().__init__(**kwargs)
 
+        self.connection = None
+        self.sched_port: int = 0
+
+    @logger.catch
     async def start(self):
-        assert self.connection
+        if self.connection is not None:
+            logger.debug("Connection made...")
+
         await super().start()
+
+        time.sleep(6)
+
+        try:
+            client = Client(address="tcp://localhost:{}".format(self.sched_port))
+            if client.status == "running":
+                client.close()
+        except Exception as ex:
+            raise ex
 
     async def close(self):
         await super().close()
@@ -54,6 +68,8 @@ class Scheduler(Process):
     """
 
     def __init__(self, sched_port=8989, dashboard_port=8787, ssh_namespace="default"):
+        super().__init__()
+
         self.cluster_id = None
         self.name = os.environ.get("JUPYTERHUB_USER") + "-{}.dask-ssh".format(
             sched_port
@@ -82,7 +98,6 @@ class Scheduler(Process):
         self.iam_server = os.environ.get("IAM_SERVER")
         self.client_id = os.environ.get("IAM_CLIENT_ID")
         self.client_secret = os.environ.get("IAM_CLIENT_SECRET")
-        super().__init__()
 
     def scale(self, n=0, memory=None, cores=None):
         raise NotImplementedError()
@@ -194,13 +209,6 @@ class Scheduler(Process):
 
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
-
-        try:
-            client = Client(address="tcp://localhost:{}".format(self.sched_port))
-            if client.status == "running":
-                client.close()
-        except Exception as ex:
-            raise ex
 
         await super().start()
 
