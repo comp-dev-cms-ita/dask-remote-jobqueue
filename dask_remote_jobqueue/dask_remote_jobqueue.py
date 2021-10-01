@@ -230,7 +230,7 @@ class Scheduler(Process):
 class RemoteHTCondor(SpecCluster):
     def __init__(self, asynchronous=False, ssh_namespace="default"):
 
-        logger.add("/var/log/RemoteHTCondor.log")
+        logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
 
         if os.environ.get("SSH_NAMESPACE"):
             ssh_namespace = os.environ.get("SSH_NAMESPACE")
