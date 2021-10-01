@@ -232,7 +232,7 @@ class Scheduler(Process):
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
 
-        # await super().start()
+        await super().start()
 
     @logger.catch
     async def close(self):
