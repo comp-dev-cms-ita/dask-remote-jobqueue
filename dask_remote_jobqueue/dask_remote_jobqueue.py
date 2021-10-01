@@ -42,14 +42,14 @@ class Process(ProcessInterface):
 
         time.sleep(6)
 
-        try:
-            client = Client(
-                address="tcp://localhost:{}".format(self.sched_port), timeout=360
-            )
-            if client.status == "running":
-                client.close()
-        except Exception as ex:
-            raise ex
+        # try:
+        #     client = Client(
+        #         address="tcp://localhost:{}".format(self.sched_port), timeout=360
+        #     )
+        #     if client.status == "running":
+        #         client.close()
+        # except Exception as ex:
+        #     raise ex
 
     async def close(self):
         await super().close()
