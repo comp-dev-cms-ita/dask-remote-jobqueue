@@ -77,7 +77,7 @@ class Scheduler(Process):
             sched_port
         )
         self.dash_hostname = os.environ.get(
-            "JUPYTERHUB_USER"
+            "JUPYTERHUB_USER", "None"
         ) + "-{}.dash.dask-ssh".format(dashboard_port)
         self.sched_port = sched_port
         self.dash_port = dashboard_port
@@ -176,14 +176,14 @@ class Scheduler(Process):
 
         job_status = 1
         while job_status == 1:
-            time.sleep(16)
+            time.sleep(60)
             cmd = "condor_q {}.0 -json".format(self.cluster_id)
 
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
 
             try:
                 classAd = json.loads(cmd_out)
-            except:
+            except Exception:
                 ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
                 raise ex
 
@@ -195,8 +195,15 @@ class Scheduler(Process):
                 ex = Exception("Scheduler job in error {}".format(job_status))
                 raise ex
 
+        ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
+
+        logger.debug("Create ssh tunnel")
+        logger.debug(f"url: {ssh_url}")
+        logger.debug(f"username: {self.name}")
+        logger.debug(f"password: {self.token}")
+
         self.connection = await asyncssh.connect(
-            f"ssh-listener.{self.sshNamespace}.svc.cluster.local",
+            ssh_url,
             port=8122,
             username=self.name,
             password=self.token,
