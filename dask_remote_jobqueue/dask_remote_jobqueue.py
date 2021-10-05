@@ -20,11 +20,6 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
 
-class InnSchedulerRepr(object):
-    def __init__(self, addr: str):
-        self.address = addr
-
-
 class Scheduler(ProcessInterface):
     """A Remote Dask Scheduler controlled via HTCondor
     Parameters
@@ -217,18 +212,15 @@ class Scheduler(ProcessInterface):
 
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
-        self.scheduler = InnSchedulerRepr(self.address)
 
         logger.debug(f"address: {self.address}")
         logger.debug(f"dashboard_address: {self.dashboard_address}")
 
     @logger.catch
     async def close(self):
-        await super().close()
-
         client = Client(address="tcp://localhost:{}".format(self.sched_port))
-
         logger.debug(f"client: {client}")
+
         try:
             logger.debug("client shutdown")
             client.shutdown()
@@ -249,6 +241,8 @@ class Scheduler(ProcessInterface):
 
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
+
+        await super().close()
 
 
 class RemoteHTCondor(SpecCluster):
