@@ -77,7 +77,8 @@ class Scheduler(ProcessInterface):
         return f"<SSH {type(self).__name__}: status={self.status}>"
 
     def scale(self, n=0, memory=None, cores=None):
-        raise NotImplementedError()
+        pass
+        # raise NotImplementedError()
 
     def adapt(
         self,
@@ -90,7 +91,8 @@ class Scheduler(ProcessInterface):
         maximum_memory: str = None,
         **kwargs,
     ):
-        raise NotImplementedError()
+        pass
+        # raise NotImplementedError()
 
     @logger.catch
     async def start(self):
