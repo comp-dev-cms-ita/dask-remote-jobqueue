@@ -63,6 +63,7 @@ cluster = HTCondorCluster(
     silence_logs="debug",
 )
 
+
 adapt = cluster.adapt(minimum=1, maximum=15)
 
 # cluster.scale(jobs=3)
