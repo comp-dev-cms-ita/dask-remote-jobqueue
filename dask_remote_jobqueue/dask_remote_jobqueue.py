@@ -274,13 +274,14 @@ class RemoteHTCondor(SpecCluster):
 
     @logger.catch
     async def close(self):
-        logger.debug("[RemoteHTCondor][close]")
-        super().close()
         try:
             logger.debug("[RemoteHTCondor][close][scheduler]")
             await self.scheduler.close()
         except Exception as ex:
             raise ex
+
+        logger.debug("[RemoteHTCondor][close]")
+        super().close()
 
         if self.asynchronous:
             return NoOpAwaitable()
