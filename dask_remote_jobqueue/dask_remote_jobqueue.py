@@ -10,6 +10,7 @@ import time
 from random import randrange
 from re import I
 from subprocess import STDOUT, check_output
+from typing import Union
 
 import asyncssh
 from dask import distributed
@@ -254,9 +255,11 @@ class RemoteHTCondor(SpecCluster):
 
         if os.environ.get("SSH_NAMESPACE"):
             ssh_namespace = os.environ.get("SSH_NAMESPACE")
+
         self.sched_port = randrange(20000, 40000)
         self.dashboard_port = randrange(20000, 40000)
-        self.scheduler: "Scheduler" = None
+        self.scheduler: Union["Scheduler", None] = None
+
         sched = {
             "cls": Scheduler,
             "options": {
