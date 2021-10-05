@@ -219,7 +219,8 @@ class Scheduler(ProcessInterface):
 
     @logger.catch
     async def close(self):
-        client = Client(address="tcp://localhost:{}".format(self.sched_port))
+        logger.debug(f"connect to scheduler: tcp://127.0.0.1:{self.sched_port}")
+        client = Client(address=f"tcp://127.0.0.1:{self.sched_port}", asynchronous=True)
         logger.debug(f"client: {client}")
 
         try:
