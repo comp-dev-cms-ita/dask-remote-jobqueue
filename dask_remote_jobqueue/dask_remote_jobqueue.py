@@ -20,54 +20,12 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
 
-class Process(ProcessInterface):
-    """A superclass for SSH Workers and Nannies
-    See Also
-    --------
-    Scheduler
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        self.connection = None
-        self.sched_port: int = 0
-
-    @logger.catch
-    async def start(self):
-        if self.connection is not None:
-            logger.debug("Connection made...")
-
-        await super().start()
-
-        # time.sleep(6)
-
-        # try:
-        #     client = Client(
-        #         address="tcp://localhost:{}".format(self.sched_port), timeout=360
-        #     )
-        #     if client.status == "running":
-        #         client.close()
-        # except Exception as ex:
-        #     raise ex
-
-    async def close(self):
-        await super().close()
-
-        if self.connection is not None:
-            logger.debug("Connection close...")
-            self.connection.close()
-
-    def __repr__(self):
-        return f"<SSH {type(self).__name__}: status={self.status}>"
-
-
 class InnSchedulerRepr(object):
     def __init__(self, addr: str):
         self.address = addr
 
 
-class Scheduler(Process):
+class Scheduler(ProcessInterface):
     """A Remote Dask Scheduler controlled via HTCondor
     Parameters
     ----------
@@ -77,7 +35,12 @@ class Scheduler(Process):
         The port to bind for dask dasahboard
     """
 
-    def __init__(self, sched_port=8989, dashboard_port=8787, ssh_namespace="default"):
+    def __init__(
+        self,
+        sched_port: int = 8989,
+        dashboard_port: int = 8787,
+        ssh_namespace="default",
+    ):
         super().__init__()
 
         self.cluster_id = None
@@ -87,8 +50,9 @@ class Scheduler(Process):
         self.dash_hostname = os.environ.get(
             "JUPYTERHUB_USER", "None"
         ) + "-{}.dash.dask-ssh".format(dashboard_port)
-        self.sched_port = sched_port
-        self.dash_port = dashboard_port
+        self.connection = None
+        self.sched_port: int = sched_port
+        self.dash_port: int = dashboard_port
         self.sshNamespace = ssh_namespace
 
         self.htc_ca = "$PWD/ca.crt"
@@ -108,6 +72,9 @@ class Scheduler(Process):
         self.iam_server = os.environ.get("IAM_SERVER")
         self.client_id = os.environ.get("IAM_CLIENT_ID")
         self.client_secret = os.environ.get("IAM_CLIENT_SECRET")
+
+    def __repr__(self):
+        return f"<SSH {type(self).__name__}: status={self.status}>"
 
     def scale(self, n=0, memory=None, cores=None):
         raise NotImplementedError()
