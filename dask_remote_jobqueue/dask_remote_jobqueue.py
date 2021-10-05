@@ -250,10 +250,13 @@ class RemoteHTCondor(SpecCluster):
 
         logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
 
+        logger.debug(f"[RemoteHTCondor][init]")
+
         if os.environ.get("SSH_NAMESPACE"):
             ssh_namespace = os.environ.get("SSH_NAMESPACE")
         self.sched_port = randrange(20000, 40000)
         self.dashboard_port = randrange(20000, 40000)
+        self.scheduler: "Scheduler" = None
         sched = {
             "cls": Scheduler,
             "options": {
@@ -267,8 +270,22 @@ class RemoteHTCondor(SpecCluster):
         )
 
     @logger.catch
+    async def close(self):
+        logger.debug(f"[RemoteHTCondor][close]")
+        super().close()
+        try:
+            logger.debug(f"[RemoteHTCondor][close][scheduler]")
+            await self.scheduler.close()
+        except Exception as ex:
+            raise ex
+
+        if self.asynchronous:
+            return NoOpAwaitable()
+
+    @logger.catch
     def scale(self, n=0, memory=None, cores=None):
         try:
+            logger.debug(f"[RemoteHTCondor][scale][scheduler]")
             self.scheduler.scale(n=n, memory=memory, cores=cores)
         except Exception as ex:
             raise ex
@@ -289,6 +306,7 @@ class RemoteHTCondor(SpecCluster):
         **kwargs,
     ):
         try:
+            logger.debug(f"[RemoteHTCondor][adapt][scheduler]")
             self.scheduler.adapt(
                 *args,
                 minimum=minimum,
