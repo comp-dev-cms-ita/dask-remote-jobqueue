@@ -160,12 +160,13 @@ class Scheduler(ProcessInterface):
                 raise ex
 
         job_status = 1
+        num_retries = 5
         while job_status == 1:
-            logger.debug("Check job status")
+            logger.debug(f"Check job status [ramaining attempts: {num_retries}]")
             cmd = "condor_q {}.0 -json".format(self.cluster_id)
             logger.debug(cmd)
 
-            time.sleep(28)
+            time.sleep(6)
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
 
             logger.debug(cmd_out)
@@ -174,6 +175,10 @@ class Scheduler(ProcessInterface):
                 classAd = json.loads(cmd_out)
                 logger.debug(f"classAd: {classAd}")
             except Exception:
+                if num_retries > 0:
+                    logger.debug("Failed... retry another time...")
+                    num_retries -= 1
+                    continue
                 ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
                 raise ex
 
@@ -208,7 +213,7 @@ class Scheduler(ProcessInterface):
         )
 
         logger.debug("Wait for connections...")
-        time.sleep(42)
+        time.sleep(16)
 
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
