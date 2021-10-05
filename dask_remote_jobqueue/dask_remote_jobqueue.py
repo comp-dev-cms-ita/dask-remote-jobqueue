@@ -95,6 +95,8 @@ class Scheduler(ProcessInterface):
     @logger.catch
     async def start(self):
 
+        await super().start()
+
         with tempfile.TemporaryDirectory() as tmpdirname:
 
             env = Environment(
@@ -213,10 +215,10 @@ class Scheduler(ProcessInterface):
         logger.debug(f"address: {self.address}")
         logger.debug(f"dashboard_address: {self.dashboard_address}")
 
-        await super().start()
-
     @logger.catch
     async def close(self):
+        await super().close()
+
         client = Client(address="tcp://localhost:{}".format(self.sched_port))
 
         logger.debug(f"client: {client}")
@@ -240,8 +242,6 @@ class Scheduler(ProcessInterface):
 
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
-
-        await super().close()
 
 
 class RemoteHTCondor(SpecCluster):
