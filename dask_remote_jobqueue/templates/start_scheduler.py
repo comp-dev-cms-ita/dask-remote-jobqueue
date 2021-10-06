@@ -21,7 +21,7 @@ class MyHTCondorJob(HTCondorJob):
         super().__init__(
             *args,
             **kwargs,
-            python="source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh; conda activate cms-dodas; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh; export LD_LIBRARY_PATH=/cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/lib:$LD_LIBRARY_PATH; python3",
+            python="source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh; conda activate cms-dodas; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh; python3",
         )
         self.submit_command = "./job_submit.sh"
         self.executable = "/bin/bash"
