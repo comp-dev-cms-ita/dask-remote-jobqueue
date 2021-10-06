@@ -3,49 +3,25 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import json
-from re import I
-import time
-import tempfile
 import math
-import asyncssh
 import os
+import tempfile
+import time
 from random import randrange
-from dask_jobqueue.htcondor import HTCondorJob
-from subprocess import check_output, STDOUT
-from jinja2 import Environment, PackageLoader, select_autoescape
+from re import I
+from subprocess import STDOUT, check_output
+from typing import Union
 
+import asyncssh
+from dask import distributed
+from dask.distributed import Client
+from distributed.deploy.spec import NoOpAwaitable, ProcessInterface, SpecCluster
 from distributed.security import Security
-
-from distributed.deploy.spec import ProcessInterface, SpecCluster, NoOpAwaitable
-
-
-class Process(ProcessInterface):
-    """A superclass for SSH Workers and Nannies
-    See Also
-    --------
-    Scheduler
-    """
-
-    def __init__(self, **kwargs):
-        self.connection = None
-        super().__init__(**kwargs)
-
-    async def start(self):
-        assert self.connection
-        await super().start()
-
-    async def close(self):
-        await super().close()
-        self.connection.close()
-
-    def __repr__(self):
-        return f"<SSH {type(self).__name__}: status={self.status}>"
+from jinja2 import Environment, PackageLoader, select_autoescape
+from loguru import logger
 
 
-from dask_jobqueue.htcondor import HTCondorJob
-
-
-class Scheduler(Process):
+class Scheduler(ProcessInterface):
     """A Remote Dask Scheduler controlled via HTCondor
     Parameters
     ----------
@@ -55,16 +31,24 @@ class Scheduler(Process):
         The port to bind for dask dasahboard
     """
 
-    def __init__(self, sched_port=8989, dashboard_port=8787, ssh_namespace="default"):
+    def __init__(
+        self,
+        sched_port: int = 8989,
+        dashboard_port: int = 8787,
+        ssh_namespace="default",
+    ):
+        super().__init__()
+
         self.cluster_id = None
         self.name = os.environ.get("JUPYTERHUB_USER") + "-{}.dask-ssh".format(
             sched_port
         )
         self.dash_hostname = os.environ.get(
-            "JUPYTERHUB_USER"
+            "JUPYTERHUB_USER", "None"
         ) + "-{}.dash.dask-ssh".format(dashboard_port)
-        self.sched_port = sched_port
-        self.dash_port = dashboard_port
+        self.connection = None
+        self.sched_port: int = sched_port
+        self.dash_port: int = dashboard_port
         self.sshNamespace = ssh_namespace
 
         self.htc_ca = "$PWD/ca.crt"
@@ -84,10 +68,13 @@ class Scheduler(Process):
         self.iam_server = os.environ.get("IAM_SERVER")
         self.client_id = os.environ.get("IAM_CLIENT_ID")
         self.client_secret = os.environ.get("IAM_CLIENT_SECRET")
-        super().__init__()
+
+    def __repr__(self):
+        return f"<SSH {type(self).__name__}: status={self.status}>"
 
     def scale(self, n=0, memory=None, cores=None):
-        raise NotImplementedError()
+        pass
+        # raise NotImplementedError()
 
     def adapt(
         self,
@@ -100,9 +87,13 @@ class Scheduler(Process):
         maximum_memory: str = None,
         **kwargs,
     ):
-        raise NotImplementedError()
+        pass
+        # raise NotImplementedError()
 
+    @logger.catch
     async def start(self):
+
+        await super().start()
 
         with tempfile.TemporaryDirectory() as tmpdirname:
 
@@ -138,45 +129,73 @@ class Scheduler(Process):
                         htc_scitoken_file=self.htc_scitoken_file,
                         htc_sec_method=self.htc_sec_method,
                     )
+                    logger.debug(dest.name)
+                    logger.debug(render)
                     # print(render)
                     dest.write(render)
 
             cmd = "cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
 
             try:
+                logger.debug(cmd)
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=os.environ)
             except Exception as ex:
                 raise ex
 
+            logger.debug(str(cmd_out))
+
             try:
                 self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
-            except:
-                raise Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                logger.debug(self.cluster_id)
+            except Exception:
+                ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                raise ex
 
             if not self.cluster_id:
-                raise Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                raise ex
 
         job_status = 1
+        num_retries = 5
         while job_status == 1:
-            time.sleep(30)
+            logger.debug(f"Check job status [ramaining attempts: {num_retries}]")
             cmd = "condor_q {}.0 -json".format(self.cluster_id)
+            logger.debug(cmd)
 
+            time.sleep(6)
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+
+            logger.debug(cmd_out)
 
             try:
                 classAd = json.loads(cmd_out)
-            except:
-                raise Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
+                logger.debug(f"classAd: {classAd}")
+            except Exception:
+                if num_retries > 0:
+                    logger.debug("Failed... retry another time...")
+                    num_retries -= 1
+                    continue
+                ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
+                raise ex
 
             job_status = classAd[0].get("JobStatus")
+            logger.debug(f"job_status: {job_status}")
             if job_status == 1:
                 # logger.info("Job {cluster_id}.0 still idle")
                 continue
             elif job_status != 2:
-                raise Exception("Scheduler job in error {}".format(job_status))
+                ex = Exception("Scheduler job in error {}".format(job_status))
+                raise ex
+
+        ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
+
+        logger.debug("Create ssh tunnel")
+        logger.debug(f"url: {ssh_url}")
+        logger.debug(f"username: {self.name}")
+        logger.debug(f"password: {self.token}")
 
         self.connection = await asyncssh.connect(
-            "ssh-listener.%s.svc.cluster.local" % self.sshNamespace,
+            ssh_url,
             port=8122,
             username=self.name,
             password=self.token,
@@ -186,31 +205,39 @@ class Scheduler(Process):
             "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
         )
         await self.connection.forward_local_port(
-            "127.0.0.1", self.dash_port, "127.0.01", self.dash_port
+            "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
         )
+
+        logger.debug("Wait for connections...")
+        time.sleep(16)
 
         self.address = "localhost:{}".format(self.sched_port)
         self.dashboard_address = "localhost:{}".format(self.dash_port)
 
-        # TODO: ugly... check sched status somehow
-        time.sleep(60)
+        logger.debug(f"address: {self.address}")
+        logger.debug(f"dashboard_address: {self.dashboard_address}")
 
-        await super().start()
-
+    @logger.catch
     async def close(self):
-        from dask.distributed import Client
-
-        client = Client(address="tcp://localhost:{}".format(self.sched_port))
+        logger.debug(f"connect to scheduler: tcp://127.0.0.1:{self.sched_port}")
+        client = Client(address=f"tcp://127.0.0.1:{self.sched_port}", asynchronous=True)
+        logger.debug(f"client: {client}")
 
         try:
+            logger.debug("client shutdown")
             client.shutdown()
+        except distributed.comm.core.CommClosedError:
+            logger.debug("client close")
+            client.close()
         except Exception as ex:
             raise ex
 
         cmd = "condor_rm {}.0".format(self.cluster_id)
+        logger.debug(cmd)
 
         try:
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+            logger.debug(str(cmd_out))
         except Exception as ex:
             raise ex
 
@@ -222,10 +249,18 @@ class Scheduler(Process):
 
 class RemoteHTCondor(SpecCluster):
     def __init__(self, asynchronous=False, ssh_namespace="default"):
+
+        logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
+
+        logger.debug("[RemoteHTCondor][init]")
+
         if os.environ.get("SSH_NAMESPACE"):
             ssh_namespace = os.environ.get("SSH_NAMESPACE")
+
         self.sched_port = randrange(20000, 40000)
         self.dashboard_port = randrange(20000, 40000)
+        self.scheduler: Union["Scheduler", None] = None
+
         sched = {
             "cls": Scheduler,
             "options": {
@@ -235,11 +270,27 @@ class RemoteHTCondor(SpecCluster):
             },
         }
         super().__init__(
-            scheduler=sched, asynchronous=asynchronous, workers={}, name="RemoteHTC"
+            name="RemoteHTC", scheduler=sched, asynchronous=asynchronous, workers={}
         )
 
+    @logger.catch
+    async def close(self):
+        try:
+            logger.debug("[RemoteHTCondor][close][scheduler]")
+            await self.scheduler.close()
+        except Exception as ex:
+            raise ex
+
+        logger.debug("[RemoteHTCondor][close]")
+        super().close()
+
+        if self.asynchronous:
+            return NoOpAwaitable()
+
+    @logger.catch
     def scale(self, n=0, memory=None, cores=None):
         try:
+            logger.debug("[RemoteHTCondor][scale][scheduler]")
             self.scheduler.scale(n=n, memory=memory, cores=cores)
         except Exception as ex:
             raise ex
@@ -247,6 +298,7 @@ class RemoteHTCondor(SpecCluster):
         if self.asynchronous:
             return NoOpAwaitable()
 
+    @logger.catch
     def adapt(
         self,
         *args,
@@ -259,6 +311,7 @@ class RemoteHTCondor(SpecCluster):
         **kwargs,
     ):
         try:
+            logger.debug("[RemoteHTCondor][adapt][scheduler]")
             self.scheduler.adapt(
                 *args,
                 minimum=minimum,
