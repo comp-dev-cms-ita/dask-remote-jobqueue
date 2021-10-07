@@ -13,7 +13,7 @@ from subprocess import STDOUT, check_output
 from typing import Union
 
 import asyncssh
-import requests
+import httpx
 from dask import distributed
 from dask.distributed import Client
 from distributed.deploy.spec import NoOpAwaitable, ProcessInterface, SpecCluster
@@ -77,9 +77,13 @@ class Scheduler(ProcessInterface):
     def __repr__(self):
         return f"<SSH {type(self).__name__}: status={self.status}>"
 
-    def scale(self, n=0, memory=None, cores=None):
-        pass
-        # raise NotImplementedError()
+    async def scale(self, n=0, memory=None, cores=None):
+        target_url = f"localhost:{self.tornado_port}/workers?num={n}"
+        logger.debug(f"[Scheduler][scale][num: {target_url}]")
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(target_url)
+            logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     def adapt(
         self,
@@ -296,12 +300,8 @@ class RemoteHTCondor(SpecCluster):
 
     @logger.catch
     def scale(self, n=0, memory=None, cores=None):
-        target_url = f"localhost:{self.tornado_port}/workers?num={n}"
-        logger.debug(f"[RemoteHTCondor][adapt][scheduler][num: {target_url}]")
-        resp = requests.get(target_url)
-        logger.debug(
-            f"[RemoteHTCondor][adapt][scheduler][resp({resp.status_code}): {resp.text}]"
-        )
+        logger.debug("[RemoteHTCondor][scale]")
+        self.scheduler.scale(n, memory, cores)
 
     @logger.catch
     def adapt(
