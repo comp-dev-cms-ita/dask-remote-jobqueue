@@ -300,9 +300,9 @@ class RemoteHTCondor(SpecCluster):
             return NoOpAwaitable()
 
     @logger.catch
-    def scale(self, n=0, memory=None, cores=None):
+    async def scale(self, n=0, memory=None, cores=None):
         logger.debug("[RemoteHTCondor][scale]")
-        self.scheduler.scale(n, memory, cores)
+        await self.scheduler.scale(n, memory, cores)
 
     @logger.catch
     def adapt(
