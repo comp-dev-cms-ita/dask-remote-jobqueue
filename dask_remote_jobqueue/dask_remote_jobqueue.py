@@ -296,7 +296,7 @@ class RemoteHTCondor(SpecCluster):
 
     @logger.catch
     def scale(self, n=0, memory=None, cores=None):
-        target_url = f"localhost:{self.tornado_port}/jobs?num={n}"
+        target_url = f"localhost:{self.tornado_port}/workers?num={n}"
         logger.debug(f"[RemoteHTCondor][adapt][scheduler][num: {target_url}]")
         resp = requests.get(target_url)
         logger.debug(
