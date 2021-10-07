@@ -21,8 +21,6 @@ from dask_jobqueue.htcondor import HTCondorJob
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-loop = asyncio.get_event_loop()
-
 
 class MyHTCondorJob(HTCondorJob):
     def __init__(self, *args, **kwargs):
@@ -52,7 +50,7 @@ token = os.environ.get("JHUB_TOKEN")
 name = os.environ.get("JHUB_USER")
 sched_port = int(os.environ.get("SCHED_PORT", "0"))
 dash_port = int(os.environ.get("DASH_PORT", "0"))
-tornado_port = int(os.environ.get("TORNADO_PORT", "0"))
+tornado_port = int(os.environ.get("TORNADO_PORT", "8765"))
 
 cluster = HTCondorCluster(
     job_cls=MyHTCondorJob,
@@ -127,15 +125,7 @@ async def start_tornado():
     logger.debug("start tornado web")
     app = make_app()
     app.listen(tornado_port)
-
-
-def start_services():
-    logger.debug("start services")
-    s1 = loop.create_task(tunnel_scheduler())
-    s2 = loop.create_task(tunnel_dashboard())
-    s3 = loop.create_task(tunnel_tornado())
-    s4 = loop.create_task(start_tornado())
-    # await asyncio.wait([s4])  # s1, s2, s3,
+    # tornado.ioloop.IOLoop.current().start()
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -152,12 +142,17 @@ def make_app():
     )
 
 
+async def main():
+    loop = asyncio.get_running_loop()
+    loop.create_task(tunnel_scheduler())
+    loop.create_task(tunnel_dashboard())
+    loop.create_task(tunnel_tornado())
+    loop.create_task(start_tornado())
+    while True:
+        logging.debug("running")
+        await asyncio.sleep(60)
+
+
 if __name__ == "__main__":
     logger.debug("start main loop")
-    try:
-        start_services()
-        loop.run_forever()
-        # loop.run_until_complete(services())
-    except (OSError, asyncssh.Error) as exc:
-        logger.error(exc)
-        sys.exit("SSH connection failed: " + str(exc))
+    asyncio.run(main())
