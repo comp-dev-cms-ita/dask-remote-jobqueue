@@ -2,18 +2,25 @@
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
+import asyncio
 import logging
 import os
+import sys
 import time
 from signal import SIGTERM, signal
 
+import asyncssh  # import now to avoid adding to module startup time
 import dask
+import tornado.ioloop
+import tornado.web
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
 # dask.config.set({"distributed.worker.memory.spill": False})
 # dask.config.set({"distributed.worker.memory.target": False})
 logger = logging.getLogger(__name__)
+
+loop = asyncio.get_event_loop()
 
 
 class MyHTCondorJob(HTCondorJob):
@@ -44,6 +51,7 @@ token = os.environ.get("JHUB_TOKEN")
 name = os.environ.get("JHUB_USER")
 sched_port = int(os.environ.get("SCHED_PORT"))
 dash_port = int(os.environ.get("DASH_PORT"))
+tornado_port = int(os.environ.get("TORNADO_PORT"))
 
 cluster = HTCondorCluster(
     job_cls=MyHTCondorJob,
@@ -67,11 +75,6 @@ cluster = HTCondorCluster(
 adapt = cluster.adapt(minimum=1, maximum=15)
 
 # cluster.scale(jobs=3)
-
-import asyncio
-import sys
-
-import asyncssh  # import now to avoid adding to module startup time
 
 
 async def tunnel_scheduler():
@@ -104,17 +107,50 @@ async def tunnel_dashboard():
     await forwarder.wait_closed()
 
 
-async def tunnel():
+async def tunnel_tornado():
+    logger.info("start tunnel tornado")
+    connection = await asyncssh.connect(
+        "jhub.131.154.96.124.myip.cloud.infn.it",
+        port=31022,
+        username=name,
+        password=token,
+        known_hosts=None,
+    )
+    forwarder = await connection.forward_remote_port(
+        "127.0.0.1", tornado_port, "127.0.0.1", tornado_port
+    )
+    await forwarder.wait_closed()
+
+
+async def services():
     logger.info("start tunnels")
-    f1 = loop.create_task(tunnel_scheduler())
-    f2 = loop.create_task(tunnel_dashboard())
-    await asyncio.wait([f1, f2])
+    s1 = loop.create_task(tunnel_scheduler())
+    s2 = loop.create_task(tunnel_dashboard())
+    s3 = loop.create_task(tunnel_tornado())
+    logger.info("start tornado web")
+    app = make_app()
+    app.listen(tornado_port)
+    tornado.ioloop.IOLoop.current().start()
+    await asyncio.wait([s1, s2, s3])
 
 
-try:
-    loop = asyncio.get_event_loop()
+class MainHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write("Hello, world")
+
+
+def make_app():
+    return tornado.web.Application(
+        [
+            (r"/", MainHandler),
+        ]
+    )
+
+
+if __name__ == "__main__":
     logger.info("start main loop")
-    loop.run_until_complete(tunnel())
-except (OSError, asyncssh.Error) as exc:
-    logger.error(exc)
-    sys.exit("SSH connection failed: " + str(exc))
+    try:
+        loop.run_until_complete(services())
+    except (OSError, asyncssh.Error) as exc:
+        logger.error(exc)
+        sys.exit("SSH connection failed: " + str(exc))

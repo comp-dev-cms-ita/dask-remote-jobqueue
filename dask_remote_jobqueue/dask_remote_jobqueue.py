@@ -29,12 +29,15 @@ class Scheduler(ProcessInterface):
         The port to bind for scheduler
     dashboard_port: int
         The port to bind for dask dasahboard
+    tornado_port: int
+        The port to bind for tornado web app
     """
 
     def __init__(
         self,
         sched_port: int = 8989,
         dashboard_port: int = 8787,
+        tornado_port: int = 8181,
         ssh_namespace="default",
     ):
         super().__init__()
@@ -49,6 +52,7 @@ class Scheduler(ProcessInterface):
         self.connection = None
         self.sched_port: int = sched_port
         self.dash_port: int = dashboard_port
+        self.tornado_port: int = tornado_port
         self.sshNamespace = ssh_namespace
 
         self.htc_ca = "$PWD/ca.crt"
@@ -117,6 +121,7 @@ class Scheduler(ProcessInterface):
                         token=self.token,
                         sched_port=self.sched_port,
                         dash_port=self.dash_port,
+                        tornado_port=self.tornado_port,
                         refresh_token=self.refresh_token,
                         iam_server=self.iam_server,
                         client_id=self.client_id,
@@ -259,6 +264,7 @@ class RemoteHTCondor(SpecCluster):
 
         self.sched_port = randrange(20000, 40000)
         self.dashboard_port = randrange(20000, 40000)
+        self.tornado_port = randrange(20000, 40000)
         self.scheduler: Union["Scheduler", None] = None
 
         sched = {
@@ -266,6 +272,7 @@ class RemoteHTCondor(SpecCluster):
             "options": {
                 "sched_port": self.sched_port,
                 "dashboard_port": self.dashboard_port,
+                "tornado_port": self.tornado_port,
                 "ssh_namespace": ssh_namespace,
             },
         }
