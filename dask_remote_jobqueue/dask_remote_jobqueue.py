@@ -78,12 +78,13 @@ class Scheduler(ProcessInterface):
         return f"<SSH {type(self).__name__}: status={self.status}>"
 
     async def scale(self, n=0, memory=None, cores=None):
-        target_url = f"localhost:{self.tornado_port}/workers?num={n}"
-        logger.debug(f"[Scheduler][scale][num: {target_url}]")
+        pass
+        # target_url = f"localhost:{self.tornado_port}/workers?num={n}"
+        # logger.debug(f"[Scheduler][scale][num: {target_url}]")
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(target_url)
-            logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
+        # async with httpx.AsyncClient() as client:
+        #     resp = await client.get(target_url)
+        #     logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     def adapt(
         self,
