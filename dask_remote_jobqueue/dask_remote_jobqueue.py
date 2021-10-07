@@ -208,6 +208,9 @@ class Scheduler(ProcessInterface):
         await self.connection.forward_local_port(
             "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
         )
+        await self.connection.forward_local_port(
+            "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
+        )
 
         logger.debug("Wait for connections...")
         time.sleep(16)
