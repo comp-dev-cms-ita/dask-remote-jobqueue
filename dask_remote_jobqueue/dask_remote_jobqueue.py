@@ -13,6 +13,7 @@ from subprocess import STDOUT, check_output
 from typing import Union
 
 import asyncssh
+import requests
 from dask import distributed
 from dask.distributed import Client
 from distributed.deploy.spec import NoOpAwaitable, ProcessInterface, SpecCluster
@@ -295,14 +296,12 @@ class RemoteHTCondor(SpecCluster):
 
     @logger.catch
     def scale(self, n=0, memory=None, cores=None):
-        try:
-            logger.debug("[RemoteHTCondor][scale][scheduler]")
-            self.scheduler.scale(n=n, memory=memory, cores=cores)
-        except Exception as ex:
-            raise ex
-
-        if self.asynchronous:
-            return NoOpAwaitable()
+        target_url = f"localhost:{self.tornado_port}/jobs?num={n}"
+        logger.debug(f"[RemoteHTCondor][adapt][scheduler][num: {target_url}]")
+        resp = requests.get(target_url)
+        logger.debug(
+            f"[RemoteHTCondor][adapt][scheduler][resp({resp.status_code}): {resp.text}]"
+        )
 
     @logger.catch
     def adapt(

@@ -21,6 +21,8 @@ from dask_jobqueue.htcondor import HTCondorJob
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+loop = asyncio.get_running_loop()
+
 
 class MyHTCondorJob(HTCondorJob):
     def __init__(self, *args, **kwargs):
@@ -130,20 +132,50 @@ async def start_tornado():
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.write("Hello, world")
+        self.write(
+            "Hello, may I help you? I guess not, you're in the wrong place... 6u"
+        )
+
+
+class CloseHandler(tornado.web.RequestHandler):
+    def get(self):
+        cluster.close()
+        loop.stop()
+
+
+class ScaleJobHandler(tornado.web.RequestHandler):
+    def get(self):
+        num_jobs = self.get_argument("num")
+        cluster.scale(jobs=num_jobs)
+        self.write(f"scaled jobs to: {num_jobs}")
+
+    def prepare(self):
+        logger.debug(self.request.arguments)
+
+
+class ScaleWorkerHandler(tornado.web.RequestHandler):
+    def get(self):
+        num_workers = self.get_argument("num")
+        cluster.scale(n=num_workers)
+        self.write(f"scaled workers to: {num_workers}")
+
+    def prepare(self):
+        logger.debug(self.request.arguments)
 
 
 def make_app():
     return tornado.web.Application(
         [
             (r"/", MainHandler),
+            (r"/jobs", ScaleJobHandler),
+            (r"/workers", ScaleWorkerHandler),
+            (r"/close", CloseHandler),
         ],
         debug=True,
     )
 
 
 async def main():
-    loop = asyncio.get_running_loop()
     loop.create_task(start_tornado())
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
