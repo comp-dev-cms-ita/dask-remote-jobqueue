@@ -124,7 +124,7 @@ async def tunnel_tornado():
 async def start_tornado():
     logger.debug("start tornado web")
     app = make_app()
-    app.listen(tornado_port)
+    app.listen(tornado_port, address="127.0.0.1")
     # tornado.ioloop.IOLoop.current().start()
 
 
