@@ -162,7 +162,7 @@ class Scheduler(ProcessInterface):
 
         job_status = 1
         while job_status == 1:
-            logger.debug(f"Check job status")
+            logger.debug("Check job status")
             cmd = "condor_q {}.0 -json".format(self.cluster_id)
             logger.debug(cmd)
 
