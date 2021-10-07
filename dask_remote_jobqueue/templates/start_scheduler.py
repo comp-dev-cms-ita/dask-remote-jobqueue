@@ -18,6 +18,7 @@ from dask_jobqueue.htcondor import HTCondorJob
 
 # dask.config.set({"distributed.worker.memory.spill": False})
 # dask.config.set({"distributed.worker.memory.target": False})
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 loop = asyncio.get_event_loop()
@@ -49,9 +50,9 @@ htc_scitoken_file = "$PWD/token"
 htc_sec_method = os.environ.get("_condor_SEC_DEFAULT_AUTHENTICATION_METHODS")
 token = os.environ.get("JHUB_TOKEN")
 name = os.environ.get("JHUB_USER")
-sched_port = int(os.environ.get("SCHED_PORT"))
-dash_port = int(os.environ.get("DASH_PORT"))
-tornado_port = int(os.environ.get("TORNADO_PORT"))
+sched_port = int(os.environ.get("SCHED_PORT", "0"))
+dash_port = int(os.environ.get("DASH_PORT", "0"))
+tornado_port = int(os.environ.get("TORNADO_PORT", "0"))
 
 cluster = HTCondorCluster(
     job_cls=MyHTCondorJob,
@@ -78,7 +79,7 @@ adapt = cluster.adapt(minimum=1, maximum=15)
 
 
 async def tunnel_scheduler():
-    logger.info("start tunnel scheduler")
+    logger.debug("start tunnel scheduler")
     connection = await asyncssh.connect(
         "jhub.131.154.96.124.myip.cloud.infn.it",
         port=31022,
@@ -93,7 +94,7 @@ async def tunnel_scheduler():
 
 
 async def tunnel_dashboard():
-    logger.info("start tunnel dashboard")
+    logger.debug("start tunnel dashboard")
     connection = await asyncssh.connect(
         "jhub.131.154.96.124.myip.cloud.infn.it",
         port=31022,
@@ -108,7 +109,7 @@ async def tunnel_dashboard():
 
 
 async def tunnel_tornado():
-    logger.info("start tunnel tornado")
+    logger.debug("start tunnel tornado")
     connection = await asyncssh.connect(
         "jhub.131.154.96.124.myip.cloud.infn.it",
         port=31022,
@@ -122,16 +123,19 @@ async def tunnel_tornado():
     await forwarder.wait_closed()
 
 
-async def services():
-    logger.info("start tunnels")
+async def start_tornado():
+    logger.debug("start tornado web")
+    app = make_app()
+    app.listen(tornado_port)
+
+
+def start_services():
+    logger.debug("start services")
     s1 = loop.create_task(tunnel_scheduler())
     s2 = loop.create_task(tunnel_dashboard())
     s3 = loop.create_task(tunnel_tornado())
-    logger.info("start tornado web")
-    app = make_app()
-    app.listen(tornado_port)
-    tornado.ioloop.IOLoop.current().start()
-    await asyncio.wait([s1, s2, s3])
+    s4 = loop.create_task(start_tornado())
+    # await asyncio.wait([s4])  # s1, s2, s3,
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -143,14 +147,17 @@ def make_app():
     return tornado.web.Application(
         [
             (r"/", MainHandler),
-        ]
+        ],
+        debug=True,
     )
 
 
 if __name__ == "__main__":
-    logger.info("start main loop")
+    logger.debug("start main loop")
     try:
-        loop.run_until_complete(services())
+        start_services()
+        loop.run_forever()
+        # loop.run_until_complete(services())
     except (OSError, asyncssh.Error) as exc:
         logger.error(exc)
         sys.exit("SSH connection failed: " + str(exc))
