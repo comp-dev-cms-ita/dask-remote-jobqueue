@@ -144,10 +144,10 @@ def make_app():
 
 async def main():
     loop = asyncio.get_running_loop()
+    loop.create_task(start_tornado())
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
     loop.create_task(tunnel_tornado())
-    loop.create_task(start_tornado())
     while True:
         logging.debug("running")
         await asyncio.sleep(60)
