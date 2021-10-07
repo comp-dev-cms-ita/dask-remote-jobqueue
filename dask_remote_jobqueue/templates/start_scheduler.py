@@ -48,9 +48,9 @@ htc_scitoken_file = "$PWD/token"
 htc_sec_method = os.environ.get("_condor_SEC_DEFAULT_AUTHENTICATION_METHODS")
 token = os.environ.get("JHUB_TOKEN")
 name = os.environ.get("JHUB_USER")
-sched_port = int(os.environ.get("SCHED_PORT", "0"))
-dash_port = int(os.environ.get("DASH_PORT", "0"))
-tornado_port = int(os.environ.get("TORNADO_PORT", "8765"))
+sched_port = int(os.environ.get("SCHED_PORT", "42000"))
+dash_port = int(os.environ.get("DASH_PORT", "42001"))
+tornado_port = int(os.environ.get("TORNADO_PORT", "42002"))
 
 cluster = HTCondorCluster(
     job_cls=MyHTCondorJob,
