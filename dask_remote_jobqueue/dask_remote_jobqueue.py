@@ -161,9 +161,8 @@ class Scheduler(ProcessInterface):
                 raise ex
 
         job_status = 1
-        num_retries = 5
         while job_status == 1:
-            logger.debug(f"Check job status [ramaining attempts: {num_retries}]")
+            logger.debug(f"Check job status")
             cmd = "condor_q {}.0 -json".format(self.cluster_id)
             logger.debug(cmd)
 
@@ -175,18 +174,15 @@ class Scheduler(ProcessInterface):
             try:
                 classAd = json.loads(cmd_out)
                 logger.debug(f"classAd: {classAd}")
-            except Exception:
-                if num_retries > 0:
-                    logger.debug("Failed... retry another time...")
-                    num_retries -= 1
-                    continue
+            except Exception as cur_ex:
+                logger.debug(cur_ex)
                 ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
                 raise ex
 
             job_status = classAd[0].get("JobStatus")
             logger.debug(f"job_status: {job_status}")
             if job_status == 1:
-                # logger.info("Job {cluster_id}.0 still idle")
+                logger.debug(f"Job {self.cluster_id}.0 still idle")
                 continue
             elif job_status != 2:
                 ex = Exception("Scheduler job in error {}".format(job_status))
