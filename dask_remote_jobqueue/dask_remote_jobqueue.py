@@ -15,8 +15,6 @@ from subprocess import STDOUT, check_output
 from typing import Union
 
 import httpx
-from dask import distributed
-from dask.distributed import Client
 from distributed.deploy.spec import NoOpAwaitable, SpecCluster
 from distributed.deploy.ssh import Scheduler as SSHSched
 from distributed.security import Security
@@ -345,18 +343,12 @@ class RemoteHTCondor(object):
 
     @logger.catch
     async def close(self):
-        logger.debug(f"connect to scheduler: tcp://127.0.0.1:{self.sched_port}")
-        client = Client(address=f"tcp://127.0.0.1:{self.sched_port}", asynchronous=True)
-        logger.debug(f"client: {client}")
+        target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num=0"
+        logger.debug(f"[Scheduler][close][scale][num: {target_url}]")
 
-        try:
-            logger.debug("client shutdown")
-            client.shutdown()
-        except distributed.comm.core.CommClosedError:
-            logger.debug("client close")
-            client.close()
-        except Exception as ex:
-            raise ex
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(target_url)
+            logger.debug(f"[Scheduler][close][resp({resp.status_code}): {resp.text}]")
 
         cmd = "condor_rm {}.0".format(self.cluster_id)
         logger.debug(cmd)
