@@ -137,6 +137,7 @@ class MainHandler(tornado.web.RequestHandler):
 class CloseHandler(tornado.web.RequestHandler):
     def get(self):
         cluster.close()
+        loop = asyncio.get_running_loop()
         loop.stop()
 
 
