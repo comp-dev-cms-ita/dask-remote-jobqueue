@@ -130,7 +130,7 @@ async def start_tornado():
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.write(
-            "Hello, may I help you? I guess not, you're in the wrong place... 6u"
+            "Hello, may I help you? I guess not, you're in the wrong place... 6u\n"
         )
 
 
@@ -143,7 +143,7 @@ class CloseHandler(tornado.web.RequestHandler):
 
 class ScaleJobHandler(tornado.web.RequestHandler):
     def get(self):
-        num_jobs = self.get_argument("num")
+        num_jobs = int(self.get_argument("num"))
         cluster.scale(jobs=num_jobs)
         self.write(f"scaled jobs to: {num_jobs}")
 
@@ -153,7 +153,7 @@ class ScaleJobHandler(tornado.web.RequestHandler):
 
 class ScaleWorkerHandler(tornado.web.RequestHandler):
     def get(self):
-        num_workers = self.get_argument("num")
+        num_workers = int(self.get_argument("num"))
         cluster.scale(n=num_workers)
         self.write(f"scaled workers to: {num_workers}")
 
