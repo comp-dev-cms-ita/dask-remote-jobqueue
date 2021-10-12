@@ -12,17 +12,17 @@ from re import I
 from subprocess import STDOUT, check_output
 from typing import Union
 
-import asyncssh
 import httpx
 from dask import distributed
 from dask.distributed import Client
-from distributed.deploy.spec import NoOpAwaitable, ProcessInterface, SpecCluster
+from distributed.deploy.spec import NoOpAwaitable, SpecCluster
+from distributed.deploy.ssh import Scheduler as SSHSched
 from distributed.security import Security
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
 
-class Scheduler(ProcessInterface):
+class Scheduler(SSHSched):
     """A Remote Dask Scheduler controlled via HTCondor
     Parameters
     ----------
@@ -41,20 +41,104 @@ class Scheduler(ProcessInterface):
         tornado_port: int = 8181,
         ssh_namespace="default",
     ):
-        super().__init__()
+        super().__init__(address="", connect_options={}, kwargs={})
 
-        self.cluster_id = None
-        self.name = os.environ.get("JUPYTERHUB_USER") + "-{}.dask-ssh".format(
-            sched_port
+    # def __repr__(self):
+    #     return f"<SSH {type(self).__name__}: status={self.status}>"
+
+    # async def scale(self, n=0, memory=None, cores=None):
+    #     pass
+    #     # target_url = f"localhost:{self.tornado_port}/jobs?num={n}"
+    #     # logger.debug(f"[Scheduler][scale][num: {target_url}]")
+
+    #     # async with httpx.AsyncClient() as client:
+    #     #     resp = await client.get(target_url)
+    #     #     logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
+
+    # def adapt(
+    #     self,
+    #     *args,
+    #     minimum=0,
+    #     maximum=math.inf,
+    #     minimum_cores: int = None,
+    #     maximum_cores: int = None,
+    #     minimum_memory: str = None,
+    #     maximum_memory: str = None,
+    #     **kwargs,
+    # ):
+    #     pass
+    #     # raise NotImplementedError()
+
+    @logger.catch
+    async def start(self):
+
+        await super().start()
+
+    # @logger.catch
+    # async def close(self):
+    #     logger.debug(f"connect to scheduler: tcp://127.0.0.1:{self.sched_port}")
+    #     client = Client(address=f"tcp://127.0.0.1:{self.sched_port}", asynchronous=True)
+    #     logger.debug(f"client: {client}")
+
+    #     try:
+    #         logger.debug("client shutdown")
+    #         client.shutdown()
+    #     except distributed.comm.core.CommClosedError:
+    #         logger.debug("client close")
+    #         client.close()
+    #     except Exception as ex:
+    #         raise ex
+
+    #     cmd = "condor_rm {}.0".format(self.cluster_id)
+    #     logger.debug(cmd)
+
+    #     try:
+    #         cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+    #         logger.debug(str(cmd_out))
+    #     except Exception as ex:
+    #         raise ex
+
+    #     if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
+    #         raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
+
+    #     await super().close()
+
+
+class RemoteHTCondor(object):
+    def __init__(
+        self,
+        ssh_namespace="default",
+        user: str = "NONE",
+        ssh_url_port: int = 8122,
+        asynchronous: bool = True,
+    ):
+
+        logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
+
+        logger.debug("[RemoteHTCondor][init]")
+
+        self.address: str = ""
+        self.dashboard_address: str = ""
+
+        self.sched_port: int = randrange(20000, 40000)
+        self.dash_port: int = randrange(20000, 40000)
+        self.tornado_port: int = randrange(20000, 40000)
+
+        logger.debug(f"generated -> sched_port: {self.sched_port}")
+        logger.debug(f"generated -> dash_port: {self.dash_port}")
+        logger.debug(f"generated -> tornado_port: {self.tornado_port}")
+
+        self.ssh_url_port: int = ssh_url_port
+
+        self.cluster_id: str = ""
+        self.name = (
+            os.environ.get("JUPYTERHUB_USER", user) + f"-{self.sched_port}.dask-ssh"
         )
-        self.dash_hostname = os.environ.get(
-            "JUPYTERHUB_USER", "None"
-        ) + "-{}.dash.dask-ssh".format(dashboard_port)
+        self.dash_hostname = (
+            os.environ.get("JUPYTERHUB_USER", user) + f"-{self.dash_port}.dash.dask-ssh"
+        )
         self.connection = None
-        self.sched_port: int = sched_port
-        self.dash_port: int = dashboard_port
-        self.tornado_port: int = tornado_port
-        self.sshNamespace = ssh_namespace
+        self.sshNamespace = os.environ.get("SSH_NAMESPACE", ssh_namespace)
 
         self.htc_ca = "$PWD/ca.crt"
         # os.environ.get("_condor_AUTH_SSL_CLIENT_CAFILE")
@@ -74,36 +158,14 @@ class Scheduler(ProcessInterface):
         self.client_id = os.environ.get("IAM_CLIENT_ID")
         self.client_secret = os.environ.get("IAM_CLIENT_SECRET")
 
-    def __repr__(self):
-        return f"<SSH {type(self).__name__}: status={self.status}>"
-
-    async def scale(self, n=0, memory=None, cores=None):
-        pass
-        # target_url = f"localhost:{self.tornado_port}/workers?num={n}"
-        # logger.debug(f"[Scheduler][scale][num: {target_url}]")
-
-        # async with httpx.AsyncClient() as client:
-        #     resp = await client.get(target_url)
-        #     logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
-
-    def adapt(
-        self,
-        *args,
-        minimum=0,
-        maximum=math.inf,
-        minimum_cores: int = None,
-        maximum_cores: int = None,
-        minimum_memory: str = None,
-        maximum_memory: str = None,
-        **kwargs,
-    ):
-        pass
-        # raise NotImplementedError()
+        # dask labextension variables
+        self.scheduler_info: dict = {"workers": {}}
+        self.scheduler_address: str = ""
+        self.dashboard_link: str = ""
 
     @logger.catch
     async def start(self):
-
-        await super().start()
+        import asyncssh  # import now to avoid adding to module startup time
 
         with tempfile.TemporaryDirectory() as tmpdirname:
 
@@ -203,11 +265,12 @@ class Scheduler(ProcessInterface):
 
         self.connection = await asyncssh.connect(
             ssh_url,
-            port=8122,
+            port=self.ssh_url_port,
             username=self.name,
             password=self.token,
             known_hosts=None,
         )
+
         await self.connection.forward_local_port(
             "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
         )
@@ -227,106 +290,66 @@ class Scheduler(ProcessInterface):
         logger.debug(f"address: {self.address}")
         logger.debug(f"dashboard_address: {self.dashboard_address}")
 
-    @logger.catch
-    async def close(self):
-        logger.debug(f"connect to scheduler: tcp://127.0.0.1:{self.sched_port}")
-        client = Client(address=f"tcp://127.0.0.1:{self.sched_port}", asynchronous=True)
-        logger.debug(f"client: {client}")
+        self.scheduler_address = self.address
+        self.dashboard_link = self.dashboard_address
 
-        try:
-            logger.debug("client shutdown")
-            client.shutdown()
-        except distributed.comm.core.CommClosedError:
-            logger.debug("client close")
-            client.close()
-        except Exception as ex:
-            raise ex
-
-        cmd = "condor_rm {}.0".format(self.cluster_id)
-        logger.debug(cmd)
-
-        try:
-            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
-            logger.debug(str(cmd_out))
-        except Exception as ex:
-            raise ex
-
-        if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
-            raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
-
-        await super().close()
-
-
-class RemoteHTCondor(SpecCluster):
-    def __init__(self, asynchronous=False, ssh_namespace="default"):
-
-        logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
-
-        logger.debug("[RemoteHTCondor][init]")
-
-        if os.environ.get("SSH_NAMESPACE"):
-            ssh_namespace = os.environ.get("SSH_NAMESPACE")
-
-        self.sched_port = randrange(20000, 40000)
-        self.dashboard_port = randrange(20000, 40000)
-        self.tornado_port = randrange(20000, 40000)
-        self.scheduler: Union["Scheduler", None] = None
-
-        sched = {
-            "cls": Scheduler,
-            "options": {
-                "sched_port": self.sched_port,
-                "dashboard_port": self.dashboard_port,
-                "tornado_port": self.tornado_port,
-                "ssh_namespace": ssh_namespace,
-            },
-        }
-        super().__init__(
-            name="RemoteHTC", scheduler=sched, asynchronous=asynchronous, workers={}
-        )
+        logger.debug(f"scheduler_address: {self.scheduler_address}")
+        logger.debug(f"dashboard_link: {self.dashboard_link}")
 
     @logger.catch
     async def close(self):
-        try:
-            logger.debug("[RemoteHTCondor][close][scheduler]")
-            await self.scheduler.close()
-        except Exception as ex:
-            raise ex
-
-        logger.debug("[RemoteHTCondor][close]")
-        super().close()
-
-        if self.asynchronous:
-            return NoOpAwaitable()
+        pass
 
     @logger.catch
-    async def scale(self, n=0, memory=None, cores=None):
-        logger.debug("[RemoteHTCondor][scale]")
-        await self.scheduler.scale(n, memory, cores)
+    async def scale(self, n: int):
+        pass
 
     @logger.catch
-    def adapt(
-        self,
-        *args,
-        minimum=0,
-        maximum=math.inf,
-        minimum_cores: int = None,
-        maximum_cores: int = None,
-        minimum_memory: str = None,
-        maximum_memory: str = None,
-        **kwargs,
-    ):
-        try:
-            logger.debug("[RemoteHTCondor][adapt][scheduler]")
-            self.scheduler.adapt(
-                *args,
-                minimum=minimum,
-                maximum=maximum,
-                minimum_cores=minimum_cores,
-                maximum_cores=maximum_cores,
-                minimum_memory=minimum_memory,
-                maximum_memory=maximum_memory,
-                **kwargs,
-            )
-        except Exception as ex:
-            raise ex
+    async def adapt(self, minimum: int, maximum: int):
+        pass
+
+    # @logger.catch
+    # async def close(self):
+    #     try:
+    #         logger.debug("[RemoteHTCondor][close][scheduler]")
+    #         await self.scheduler.close()
+    #     except Exception as ex:
+    #         raise ex
+
+    #     logger.debug("[RemoteHTCondor][close]")
+    #     super().close()
+
+    #     if self.asynchronous:
+    #         return NoOpAwaitable()
+
+    # @logger.catch
+    # async def scale(self, n=0, memory=None, cores=None):
+    #     logger.debug("[RemoteHTCondor][scale]")
+    #     await self.scheduler.scale(n, memory, cores)
+
+    # @logger.catch
+    # def adapt(
+    #     self,
+    #     *args,
+    #     minimum=0,
+    #     maximum=math.inf,
+    #     minimum_cores: int = None,
+    #     maximum_cores: int = None,
+    #     minimum_memory: str = None,
+    #     maximum_memory: str = None,
+    #     **kwargs,
+    # ):
+    #     try:
+    #         logger.debug("[RemoteHTCondor][adapt][scheduler]")
+    #         self.scheduler.adapt(
+    #             *args,
+    #             minimum=minimum,
+    #             maximum=maximum,
+    #             minimum_cores=minimum_cores,
+    #             maximum_cores=maximum_cores,
+    #             minimum_memory=minimum_memory,
+    #             maximum_memory=maximum_memory,
+    #             **kwargs,
+    #         )
+    #     except Exception as ex:
+    #         raise ex
