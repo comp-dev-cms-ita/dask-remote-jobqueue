@@ -333,7 +333,7 @@ class RemoteHTCondor(object):
             logger.debug(f"dashboard_address: {self.dashboard_address}")
 
             self.scheduler_address = self.address
-            self.dashboard_link = f"{self.dashboard_address}/status"
+            self.dashboard_link = f"http://{self.dashboard_address}/status"
 
             logger.debug(f"scheduler_address: {self.scheduler_address}")
             logger.debug(f"dashboard_link: {self.dashboard_link}")
