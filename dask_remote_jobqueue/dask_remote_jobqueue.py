@@ -340,9 +340,9 @@ class RemoteHTCondor(object):
 
             self.status = 1
 
-            client = Client(address=self.address, asynchronous=True)
-            client.get
-            logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
+            # client = Client(address=self.address, asynchronous=True)
+            # client.get
+            # logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     @logger.catch
     async def close(self):
