@@ -15,6 +15,7 @@ from subprocess import STDOUT, check_output
 from typing import Union
 
 # import httpx
+
 # from dask import distributed
 from dask.distributed import Client
 from distributed.deploy.spec import NoOpAwaitable, SpecCluster
@@ -338,6 +339,10 @@ class RemoteHTCondor(object):
             logger.debug(f"dashboard_link: {self.dashboard_link}")
 
             self.status = 1
+
+            client = Client(address=self.address, asynchronous=True)
+            client.get
+            logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     @logger.catch
     async def close(self):
