@@ -21,8 +21,6 @@ from dask_jobqueue.htcondor import HTCondorJob
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-loop = asyncio.get_running_loop()
-
 
 class MyHTCondorJob(HTCondorJob):
     def __init__(self, *args, **kwargs):
@@ -175,6 +173,7 @@ def make_app():
 
 
 async def main():
+    loop = asyncio.get_running_loop()
     loop.create_task(start_tornado())
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
