@@ -15,8 +15,7 @@ from subprocess import STDOUT, check_output
 from typing import Union
 
 import httpx
-
-# from dask import distributed
+from dask import distributed
 from dask.distributed import Client
 from distributed.deploy.spec import NoOpAwaitable, SpecCluster
 from distributed.deploy.ssh import Scheduler as SSHSched
@@ -327,13 +326,13 @@ class RemoteHTCondor(object):
             await asyncio.sleep(16)
 
             self.address = "localhost:{}".format(self.sched_port)
-            self.dashboard_address = "localhost:{}".format(self.dash_port)
+            self.dashboard_address = "http://localhost:{}".format(self.dash_port)
 
             logger.debug(f"address: {self.address}")
             logger.debug(f"dashboard_address: {self.dashboard_address}")
 
             self.scheduler_address = self.address
-            self.dashboard_link = f"http://{self.dashboard_address}/status"
+            self.dashboard_link = f"{self.dashboard_address}/status"
 
             logger.debug(f"scheduler_address: {self.scheduler_address}")
             logger.debug(f"dashboard_link: {self.dashboard_link}")
@@ -346,11 +345,34 @@ class RemoteHTCondor(object):
 
     @logger.catch
     async def close(self):
-        pass
+        logger.debug(f"connect to scheduler: tcp://127.0.0.1:{self.sched_port}")
+        client = Client(address=f"tcp://127.0.0.1:{self.sched_port}", asynchronous=True)
+        logger.debug(f"client: {client}")
+
+        try:
+            logger.debug("client shutdown")
+            client.shutdown()
+        except distributed.comm.core.CommClosedError:
+            logger.debug("client close")
+            client.close()
+        except Exception as ex:
+            raise ex
+
+        cmd = "condor_rm {}.0".format(self.cluster_id)
+        logger.debug(cmd)
+
+        try:
+            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+            logger.debug(str(cmd_out))
+        except Exception as ex:
+            raise ex
+
+        if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
+            raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
     @logger.catch
     async def scale(self, n: int):
-        target_url = f"localhost:{self.tornado_port}/jobs?num={n}"
+        target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num={n}"
         logger.debug(f"[Scheduler][scale][num: {target_url}]")
 
         async with httpx.AsyncClient() as client:
