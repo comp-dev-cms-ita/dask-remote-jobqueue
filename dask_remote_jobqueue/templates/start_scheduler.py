@@ -130,7 +130,7 @@ async def start_tornado():
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.write(
-            "Hello, may I help you? I guess not, you're in the wrong place... 6u\n"
+            "Hello, may I help you? I guess not, you're in the wrong place... 6u"
         )
 
 

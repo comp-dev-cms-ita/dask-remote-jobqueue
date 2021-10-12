@@ -14,7 +14,7 @@ from re import I
 from subprocess import STDOUT, check_output
 from typing import Union
 
-# import httpx
+import httpx
 
 # from dask import distributed
 from dask.distributed import Client
@@ -333,7 +333,7 @@ class RemoteHTCondor(object):
             logger.debug(f"dashboard_address: {self.dashboard_address}")
 
             self.scheduler_address = self.address
-            self.dashboard_link = self.dashboard_address
+            self.dashboard_link = f"{self.dashboard_address}/status"
 
             logger.debug(f"scheduler_address: {self.scheduler_address}")
             logger.debug(f"dashboard_link: {self.dashboard_link}")
@@ -350,7 +350,12 @@ class RemoteHTCondor(object):
 
     @logger.catch
     async def scale(self, n: int):
-        pass
+        target_url = f"localhost:{self.tornado_port}/jobs?num={n}"
+        logger.debug(f"[Scheduler][scale][num: {target_url}]")
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(target_url)
+            logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     @logger.catch
     async def adapt(self, minimum: int, maximum: int):
