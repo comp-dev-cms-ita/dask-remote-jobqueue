@@ -2,12 +2,12 @@
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
+import asyncio
 import json
 
 # import math
 import os
 import tempfile
-import time
 from inspect import isawaitable
 from random import randrange
 from re import I
@@ -260,7 +260,7 @@ class RemoteHTCondor(object):
                 cmd = "condor_q {}.0 -json".format(self.cluster_id)
                 logger.debug(cmd)
 
-                time.sleep(6)
+                await asyncio.sleep(6)
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
 
                 logger.debug(cmd_out)
@@ -299,18 +299,31 @@ class RemoteHTCondor(object):
                 known_hosts=None,
             )
 
-            await self.connection.forward_local_port(
-                "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
-            )
-            await self.connection.forward_local_port(
-                "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
-            )
-            await self.connection.forward_local_port(
-                "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
-            )
+            async def forward_sched():
+                cur_conn = await self.connection.forward_local_port(
+                    "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
+                )
+                cur_conn.wait_closed()
+
+            async def forward_dash():
+                cur_conn = await self.connection.forward_local_port(
+                    "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
+                )
+                cur_conn.wait_closed()
+
+            async def forward_tornado():
+                cur_conn = await self.connection.forward_local_port(
+                    "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
+                )
+                cur_conn.wait_closed()
+
+            loop = asyncio.get_running_loop()
+            loop.create_task(forward_sched())
+            loop.create_task(forward_dash())
+            loop.create_task(forward_tornado())
 
             logger.debug("Wait for connections...")
-            time.sleep(16)
+            await asyncio.sleep(16)
 
             self.address = "localhost:{}".format(self.sched_port)
             self.dashboard_address = "localhost:{}".format(self.dash_port)
