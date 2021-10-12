@@ -8,6 +8,7 @@ import json
 import os
 import tempfile
 import time
+from inspect import isawaitable
 from random import randrange
 from re import I
 from subprocess import STDOUT, check_output
@@ -118,6 +119,8 @@ class RemoteHTCondor(object):
 
         logger.debug("[RemoteHTCondor][init]")
 
+        self.status: int = 0
+
         self.address: str = ""
         self.dashboard_address: str = ""
 
@@ -164,138 +167,164 @@ class RemoteHTCondor(object):
         self.scheduler_address: str = ""
         self.dashboard_link: str = ""
 
+    def __await__(self):
+        async def closure():
+            logger.debug("await RemoteHTCondor")
+            if self.status == 0:
+                await self.start()
+            return self
+
+        return closure().__await__()
+
+    async def __aenter__(self):
+        await self
+        assert self.status == 1
+        return self
+
+    async def __aexit__(self, typ, value, traceback):
+        f = self.close()
+        if isawaitable(f):
+            await f
+
     @logger.catch
     async def start(self):
-        import asyncssh  # import now to avoid adding to module startup time
+        if self.status == 0:
+            import asyncssh  # import now to avoid adding to module startup time
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
+            with tempfile.TemporaryDirectory() as tmpdirname:
 
-            env = Environment(
-                loader=PackageLoader("dask_remote_jobqueue"),
-                autoescape=select_autoescape(),
+                env = Environment(
+                    loader=PackageLoader("dask_remote_jobqueue"),
+                    autoescape=select_autoescape(),
+                )
+
+                files = [
+                    "scheduler.sh",
+                    "scheduler.sub",
+                    "start_scheduler.py",
+                    "job_submit.sh",
+                ]
+
+                for f in files:
+                    tmpl = env.get_template(f)
+                    with open(tmpdirname + "/" + f, "w") as dest:
+                        render = tmpl.render(
+                            name=self.name,
+                            token=self.token,
+                            sched_port=self.sched_port,
+                            dash_port=self.dash_port,
+                            tornado_port=self.tornado_port,
+                            refresh_token=self.refresh_token,
+                            iam_server=self.iam_server,
+                            client_id=self.client_id,
+                            client_secret=self.client_secret,
+                            htc_ca=self.htc_ca,
+                            htc_debug=self.htc_debug,
+                            htc_collector=self.htc_collector,
+                            htc_schedd_host=self.htc_schedd_host,
+                            htc_schedd_name=self.htc_schedd_name,
+                            htc_scitoken_file=self.htc_scitoken_file,
+                            htc_sec_method=self.htc_sec_method,
+                        )
+                        logger.debug(dest.name)
+                        logger.debug(render)
+                        # print(render)
+                        dest.write(render)
+
+                cmd = "cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
+
+                try:
+                    logger.debug(cmd)
+                    cmd_out = check_output(
+                        cmd, stderr=STDOUT, shell=True, env=os.environ
+                    )
+                except Exception as ex:
+                    raise ex
+
+                logger.debug(str(cmd_out))
+
+                try:
+                    self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
+                    logger.debug(self.cluster_id)
+                except Exception:
+                    ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                    raise ex
+
+                if not self.cluster_id:
+                    ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
+                    raise ex
+
+            job_status = 1
+            while job_status == 1:
+                logger.debug("Check job status")
+                cmd = "condor_q {}.0 -json".format(self.cluster_id)
+                logger.debug(cmd)
+
+                time.sleep(6)
+                cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+
+                logger.debug(cmd_out)
+
+                try:
+                    classAd = json.loads(cmd_out)
+                    logger.debug(f"classAd: {classAd}")
+                except Exception as cur_ex:
+                    logger.debug(cur_ex)
+                    ex = Exception(
+                        "Failed to decode claasAd for scheduler: %s" % cmd_out
+                    )
+                    raise ex
+
+                job_status = classAd[0].get("JobStatus")
+                logger.debug(f"job_status: {job_status}")
+                if job_status == 1:
+                    logger.debug(f"Job {self.cluster_id}.0 still idle")
+                    continue
+                elif job_status != 2:
+                    ex = Exception("Scheduler job in error {}".format(job_status))
+                    raise ex
+
+            ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
+
+            logger.debug("Create ssh tunnel")
+            logger.debug(f"url: {ssh_url}")
+            logger.debug(f"username: {self.name}")
+            logger.debug(f"password: {self.token}")
+
+            self.connection = await asyncssh.connect(
+                ssh_url,
+                port=self.ssh_url_port,
+                username=self.name,
+                password=self.token,
+                known_hosts=None,
             )
 
-            files = [
-                "scheduler.sh",
-                "scheduler.sub",
-                "start_scheduler.py",
-                "job_submit.sh",
-            ]
+            await self.connection.forward_local_port(
+                "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
+            )
+            await self.connection.forward_local_port(
+                "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
+            )
+            await self.connection.forward_local_port(
+                "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
+            )
 
-            for f in files:
-                tmpl = env.get_template(f)
-                with open(tmpdirname + "/" + f, "w") as dest:
-                    render = tmpl.render(
-                        name=self.name,
-                        token=self.token,
-                        sched_port=self.sched_port,
-                        dash_port=self.dash_port,
-                        tornado_port=self.tornado_port,
-                        refresh_token=self.refresh_token,
-                        iam_server=self.iam_server,
-                        client_id=self.client_id,
-                        client_secret=self.client_secret,
-                        htc_ca=self.htc_ca,
-                        htc_debug=self.htc_debug,
-                        htc_collector=self.htc_collector,
-                        htc_schedd_host=self.htc_schedd_host,
-                        htc_schedd_name=self.htc_schedd_name,
-                        htc_scitoken_file=self.htc_scitoken_file,
-                        htc_sec_method=self.htc_sec_method,
-                    )
-                    logger.debug(dest.name)
-                    logger.debug(render)
-                    # print(render)
-                    dest.write(render)
+            logger.debug("Wait for connections...")
+            time.sleep(16)
 
-            cmd = "cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
+            self.address = "localhost:{}".format(self.sched_port)
+            self.dashboard_address = "localhost:{}".format(self.dash_port)
 
-            try:
-                logger.debug(cmd)
-                cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=os.environ)
-            except Exception as ex:
-                raise ex
+            logger.debug(f"address: {self.address}")
+            logger.debug(f"dashboard_address: {self.dashboard_address}")
 
-            logger.debug(str(cmd_out))
+            self.scheduler_address = self.address
+            self.dashboard_link = self.dashboard_address
 
-            try:
-                self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
-                logger.debug(self.cluster_id)
-            except Exception:
-                ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
-                raise ex
+            logger.debug(f"scheduler_address: {self.scheduler_address}")
+            logger.debug(f"dashboard_link: {self.dashboard_link}")
 
-            if not self.cluster_id:
-                ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
-                raise ex
-
-        job_status = 1
-        while job_status == 1:
-            logger.debug("Check job status")
-            cmd = "condor_q {}.0 -json".format(self.cluster_id)
-            logger.debug(cmd)
-
-            time.sleep(6)
-            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
-
-            logger.debug(cmd_out)
-
-            try:
-                classAd = json.loads(cmd_out)
-                logger.debug(f"classAd: {classAd}")
-            except Exception as cur_ex:
-                logger.debug(cur_ex)
-                ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
-                raise ex
-
-            job_status = classAd[0].get("JobStatus")
-            logger.debug(f"job_status: {job_status}")
-            if job_status == 1:
-                logger.debug(f"Job {self.cluster_id}.0 still idle")
-                continue
-            elif job_status != 2:
-                ex = Exception("Scheduler job in error {}".format(job_status))
-                raise ex
-
-        ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
-
-        logger.debug("Create ssh tunnel")
-        logger.debug(f"url: {ssh_url}")
-        logger.debug(f"username: {self.name}")
-        logger.debug(f"password: {self.token}")
-
-        self.connection = await asyncssh.connect(
-            ssh_url,
-            port=self.ssh_url_port,
-            username=self.name,
-            password=self.token,
-            known_hosts=None,
-        )
-
-        await self.connection.forward_local_port(
-            "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
-        )
-        await self.connection.forward_local_port(
-            "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
-        )
-        await self.connection.forward_local_port(
-            "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
-        )
-
-        logger.debug("Wait for connections...")
-        time.sleep(16)
-
-        self.address = "localhost:{}".format(self.sched_port)
-        self.dashboard_address = "localhost:{}".format(self.dash_port)
-
-        logger.debug(f"address: {self.address}")
-        logger.debug(f"dashboard_address: {self.dashboard_address}")
-
-        self.scheduler_address = self.address
-        self.dashboard_link = self.dashboard_address
-
-        logger.debug(f"scheduler_address: {self.scheduler_address}")
-        logger.debug(f"dashboard_link: {self.dashboard_link}")
+            self.status = 1
 
     @logger.catch
     async def close(self):
