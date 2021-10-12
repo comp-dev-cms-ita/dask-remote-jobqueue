@@ -3,7 +3,8 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import json
-import math
+
+# import math
 import os
 import tempfile
 import time
@@ -12,8 +13,8 @@ from re import I
 from subprocess import STDOUT, check_output
 from typing import Union
 
-import httpx
-from dask import distributed
+# import httpx
+# from dask import distributed
 from dask.distributed import Client
 from distributed.deploy.spec import NoOpAwaitable, SpecCluster
 from distributed.deploy.ssh import Scheduler as SSHSched
