@@ -65,7 +65,7 @@ cluster = HTCondorCluster(
     silence_logs="debug",
 )
 
-cluster.adapt(minimum_jobs=0, maximum_jobs=16)
+cluster.adapt(minimum_jobs=1, maximum_jobs=16)
 
 
 async def tunnel_scheduler():
