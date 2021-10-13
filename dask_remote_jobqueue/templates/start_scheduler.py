@@ -3,6 +3,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import asyncio
+import json
 import logging
 import os
 
@@ -152,7 +153,59 @@ class ScaleWorkerHandler(tornado.web.RequestHandler):
 
 class WorkerSpecHandler(tornado.web.RequestHandler):
     def get(self):
-        self.write(str(cluster.worker_spec))
+        """Return a descriptive dictionary of worker specs.
+
+        Example worker_spec:
+            {
+                "HTCondorCluster-0": {
+                    "cls": "__main__.MyHTCondorJob",
+                    "options": {
+                        "cores": 1,
+                        "memory": "3 GB",
+                        "disk": "1 GB",
+                        "job_extra": {
+                            "+OWNER": "condor",
+                            "log": "simple.log",
+                            "output": "simple.out",
+                            "error": "simple.error"
+                        },
+                        "config_name": "htcondor",
+                        "interface": "None",
+                        "protocol": "tcp://",
+                        "security": "None"
+                    }
+                },
+                "HTCondorCluster-1": {
+                    "cls": "__main__.MyHTCondorJob",
+                    "options": {
+                        "cores": 1,
+                        "memory": "3 GB",
+                        "disk": "1 GB",
+                        "job_extra": {
+                            "+OWNER": "condor",
+                            "log": "simple.log",
+                            "output": "simple.out",
+                            "error": "simple.error"
+                        },
+                        "config_name": "htcondor",
+                        "interface": "None",
+                        "protocol": "tcp://",
+                        "security": "None"
+                    }
+                }
+            }"""
+        workers = {}
+        for num, (_, spec) in enumerate(cluster.worker_spec.items()):
+            memory_limit = spec["options"]["memory"].lower()
+            if memory_limit.find("gb"):
+                memory_limit = int(memory_limit.replace("gb", "").strip()) * 1000
+            else:
+                memory_limit = -1
+            workers[str(num)] = {
+                "nthreads": spec["options"]["cores"],
+                "memory_limit": memory_limit,
+            }
+        self.write(json.dumps(workers))
 
 
 def make_app():

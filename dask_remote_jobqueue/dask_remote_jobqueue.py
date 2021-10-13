@@ -161,6 +161,15 @@ class RemoteHTCondor(object):
         self.client_secret = os.environ.get("IAM_CLIENT_SECRET")
 
         # dask labextension variables
+        # scheduler_info expected struct: {
+        #     "workers": {
+        #         "0": {
+        #             "nthreads": int,
+        #             "memory_limit": int,
+        #         }
+        #        ...
+        #     }
+        # }
         self.scheduler_info: dict = {"workers": {}}
         self.scheduler_address: str = ""
         self.dashboard_link: str = ""
