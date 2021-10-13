@@ -277,6 +277,9 @@ class RemoteHTCondor(object):
                 if job_status == 1:
                     logger.debug(f"Job {self.cluster_id}.0 still idle")
                     continue
+                elif job_status == 5:
+                    logger.debug(f"Job {self.cluster_id}.0 still hold")
+                    continue
                 elif job_status != 2:
                     ex = Exception("Scheduler job in error {}".format(job_status))
                     raise ex
