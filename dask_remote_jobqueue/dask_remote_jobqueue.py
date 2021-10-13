@@ -258,7 +258,6 @@ class RemoteHTCondor(object):
                 cmd = "condor_q {}.0 -json".format(self.cluster_id)
                 logger.debug(cmd)
 
-                await asyncio.sleep(6)
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
 
                 logger.debug(cmd_out)
@@ -281,6 +280,8 @@ class RemoteHTCondor(object):
                 elif job_status != 2:
                     ex = Exception("Scheduler job in error {}".format(job_status))
                     raise ex
+
+                await asyncio.sleep(2)
 
             ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
 
@@ -321,7 +322,7 @@ class RemoteHTCondor(object):
             loop.create_task(forward_tornado())
 
             logger.debug("Wait for connections...")
-            await asyncio.sleep(16)
+            await asyncio.sleep(6)
 
             self.address = "localhost:{}".format(self.sched_port)
             self.dashboard_address = "http://localhost:{}".format(self.dash_port)
