@@ -1,6 +1,6 @@
 asyncssh
 dask
 dask_jobqueue
+httpx
 jinja2
 loguru
-httpx
