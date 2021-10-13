@@ -7,7 +7,7 @@ import json
 import logging
 import os
 
-import asyncssh  # import now to avoid adding to module startup time
+import asyncssh
 import tornado.ioloop
 import tornado.web
 from dask_jobqueue import HTCondorCluster
@@ -28,9 +28,24 @@ class MyHTCondorJob(HTCondorJob):
         self.executable = "/bin/bash"
 
 
-# JHUB_TOKEN={{ token }},JHUB_USER={{ name }},SCHED_PORT={{ sched_port }},DASH_PORT={{ dash_port }},
-# RT={{ refresh_token }},IAM_SERVER={{ iam_server }},IAM_CLIENT_ID={{ client_id }},IAM_CLIENT_SECRET={{ client_secret }}
-# _condor_AUTH_SSL_CLIENT_CAFILE={{ htc_ca }};_condor_TOOL_DEBUG={{ htc_debug }};_condor_COLLECTOR_HOST={{ htc_collector }}; _condor_SCHEDD_HOST={{ htc_schedd_host }};_condor_SCHEDD_NAME={{ htc_schedd_name }};_condor_SCITOKENS_FILE={{ htc_scitoken_file }};_condor_SEC_DEFAULT_AUTHENTICATION_METHODS={{ htc_sec_method}}
+##
+# List of variables set in scheduler.sub
+#
+# JHUB_TOKEN={{ token }}
+# JHUB_USER={{ name }}
+# SCHED_PORT={{ sched_port }}
+# DASH_PORT={{ dash_port }}
+# RT={{ refresh_token }}
+# IAM_SERVER={{ iam_server }}
+# IAM_CLIENT_ID={{ client_id }}
+# IAM_CLIENT_SECRET={{ client_secret }}
+# _condor_AUTH_SSL_CLIENT_CAFILE={{ htc_ca }};
+# _condor_TOOL_DEBUG={{ htc_debug }};
+# _condor_COLLECTOR_HOST={{ htc_collector }};
+#  _condor_SCHEDD_HOST={{ htc_schedd_host }};
+# _condor_SCHEDD_NAME={{ htc_schedd_name }};
+# _condor_SCITOKENS_FILE={{ htc_scitoken_file }};
+# _condor_SEC_DEFAULT_AUTHENTICATION_METHODS={{ htc_sec_method}}
 
 htc_ca = "$PWD/ca.crt"
 # os.environ.get("_condor_AUTH_SSL_CLIENT_CAFILE")
@@ -65,6 +80,8 @@ cluster = HTCondorCluster(
     silence_logs="debug",
 )
 
+# Set the cluster to adaptiv mode, with min and max
+# TODO: pass minumum and maximum by ENV VAR
 cluster.adapt(minimum_jobs=1, maximum_jobs=16)
 
 
@@ -117,7 +134,6 @@ async def start_tornado():
     logger.debug("start tornado web")
     app = make_app()
     app.listen(tornado_port, address="127.0.0.1")
-    # tornado.ioloop.IOLoop.current().start()
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -203,6 +219,7 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
                 memory_limit = int(memory_limit.replace("gb", "").strip()) * 10 ** 9
             else:
                 memory_limit = -1
+            # See dask-labextension make_cluster_model
             workers[str(num)] = {
                 "nthreads": spec["options"]["cores"],
                 "memory_limit": memory_limit,
@@ -211,6 +228,7 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
 
 
 def make_app():
+    """Create scheduler support app"""
     return tornado.web.Application(
         [
             (r"/", MainHandler),
