@@ -3,7 +3,6 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import asyncio
-import json
 import logging
 import os
 
@@ -153,7 +152,7 @@ class ScaleWorkerHandler(tornado.web.RequestHandler):
 
 class WorkerSpecHandler(tornado.web.RequestHandler):
     def get(self):
-        self.write(json.dumps(cluster.worker_spec))
+        self.write(str(cluster.worker_spec))
 
 
 def make_app():
