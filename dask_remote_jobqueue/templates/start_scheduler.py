@@ -198,7 +198,7 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
         for num, (_, spec) in enumerate(cluster.worker_spec.items()):
             memory_limit = spec["options"]["memory"].lower()
             if memory_limit.find("gb"):
-                memory_limit = int(memory_limit.replace("gb", "").strip()) * 1000
+                memory_limit = int(memory_limit.replace("gb", "").strip()) * 10 ** 9
             else:
                 memory_limit = -1
             workers[str(num)] = {
