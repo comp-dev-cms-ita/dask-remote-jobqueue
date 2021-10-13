@@ -343,8 +343,8 @@ class RemoteHTCondor(object):
 
     @logger.catch
     async def close(self):
-        target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num=0"
-        logger.debug(f"[Scheduler][close][scale][num: {target_url}]")
+        target_url = f"http://127.0.0.1:{self.tornado_port}/close"
+        logger.debug(f"[Scheduler][close][url: {target_url}]")
 
         async with httpx.AsyncClient() as client:
             resp = await client.get(target_url)
@@ -365,7 +365,7 @@ class RemoteHTCondor(object):
     @logger.catch
     async def scale(self, n: int):
         target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num={n}"
-        logger.debug(f"[Scheduler][scale][num: {target_url}]")
+        logger.debug(f"[Scheduler][scale][num: {n}][url: {target_url}]")
 
         async with httpx.AsyncClient() as client:
             resp = await client.get(target_url)

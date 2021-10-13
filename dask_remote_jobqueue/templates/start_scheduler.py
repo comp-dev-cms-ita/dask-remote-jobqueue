@@ -71,10 +71,6 @@ cluster = HTCondorCluster(
 )
 
 
-# adapt = cluster.adapt(minimum_jobs=1, maximum_jobs=8)
-# cluster.scale(jobs=1)
-
-
 async def tunnel_scheduler():
     logger.debug("start tunnel scheduler")
     connection = await asyncssh.connect(
@@ -137,8 +133,7 @@ class MainHandler(tornado.web.RequestHandler):
 class CloseHandler(tornado.web.RequestHandler):
     def get(self):
         cluster.close()
-        loop = asyncio.get_running_loop()
-        loop.stop()
+        self.write("cluster closed")
 
 
 class ScaleJobHandler(tornado.web.RequestHandler):
