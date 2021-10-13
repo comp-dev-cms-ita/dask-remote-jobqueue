@@ -3,21 +3,16 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 import asyncio
+import json
 import logging
 import os
-import sys
-import time
-from signal import SIGTERM, signal
 
 import asyncssh  # import now to avoid adding to module startup time
-import dask
 import tornado.ioloop
 import tornado.web
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
-# dask.config.set({"distributed.worker.memory.spill": False})
-# dask.config.set({"distributed.worker.memory.target": False})
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -156,12 +151,18 @@ class ScaleWorkerHandler(tornado.web.RequestHandler):
         logger.debug(self.request.arguments)
 
 
+class WorkerSpecHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(json.dumps(cluster.worker_spec))
+
+
 def make_app():
     return tornado.web.Application(
         [
             (r"/", MainHandler),
             (r"/jobs", ScaleJobHandler),
             (r"/workers", ScaleWorkerHandler),
+            (r"/workerSpec", WorkerSpecHandler),
             (r"/close", CloseHandler),
         ],
         debug=True,
