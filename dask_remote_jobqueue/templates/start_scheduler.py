@@ -82,7 +82,7 @@ cluster = HTCondorCluster(
 
 # Set the cluster to adaptiv mode, with min and max
 # TODO: pass minumum and maximum by ENV VAR
-cluster.adapt(minimum_jobs=1, maximum_jobs=16)
+cluster.adapt(minimum_jobs=0, maximum_jobs=16)
 
 
 async def tunnel_scheduler():
