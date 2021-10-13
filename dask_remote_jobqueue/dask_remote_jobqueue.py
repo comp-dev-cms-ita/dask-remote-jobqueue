@@ -372,7 +372,7 @@ class RemoteHTCondor(object):
             resp = await client.get(target_url)
             logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
-        target_url = f"http://127.0.0.1{self.tornado_port}/workerSpec"
+        target_url = f"http://127.0.0.1:{self.tornado_port}/workerSpec"
         logger.debug(f"[Scheduler][scale][url: {target_url}]")
 
         async with httpx.AsyncClient() as client:
