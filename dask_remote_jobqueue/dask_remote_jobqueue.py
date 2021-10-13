@@ -262,7 +262,9 @@ class RemoteHTCondor(object):
                     raise ex
 
             job_status = 1
-            while job_status == 1:
+
+            # While job is idle or hold
+            while job_status in [1, 5]:
                 logger.debug("Check job status")
                 cmd = "condor_q {}.0 -json".format(self.cluster_id)
                 logger.debug(cmd)
