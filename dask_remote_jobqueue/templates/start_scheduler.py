@@ -72,7 +72,7 @@ cluster = HTCondorCluster(
         "dashboard_address": "127.0.0.1:{}".format(dash_port),
     },
     job_extra={
-        "+OWNER": name.split("-")[0],
+        "+OWNER": "\"" + name.split("-")[0] + "\"",
         "log": "wn.log",
         "output": "wn.out",
         "error": "wn.error",
