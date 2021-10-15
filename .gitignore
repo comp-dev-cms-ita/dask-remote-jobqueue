@@ -1,3 +1,5 @@
 dask_remote_jobqueue.egg-info
 dask_remote_jobqueue.egg-info/*
 dist/*
+.venv
+.venv/*
