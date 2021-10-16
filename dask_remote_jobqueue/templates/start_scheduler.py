@@ -76,6 +76,7 @@ cluster = HTCondorCluster(
         "log": "wn.log",
         "output": "wn.out",
         "error": "wn.error",
+        "should_transfer_files": "YES",
     },
     silence_logs="debug",
 )
