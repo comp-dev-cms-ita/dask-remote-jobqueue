@@ -62,24 +62,58 @@ sched_port = int(os.environ.get("SCHED_PORT", "42000"))
 dash_port = int(os.environ.get("DASH_PORT", "42001"))
 tornado_port = int(os.environ.get("TORNADO_PORT", "42002"))
 
-cluster = HTCondorCluster(
-    job_cls=MyHTCondorJob,
-    cores=1,
-    memory="3 GB",
-    disk="1 GB",
-    scheduler_options={
-        "host": ":{}".format(sched_port),
-        "dashboard_address": "127.0.0.1:{}".format(dash_port),
-    },
-    job_extra={
-        "+OWNER": '"' + name.split("-")[0] + '"',
-        "log": "wn.log",
-        "output": "wn.out",
-        "error": "wn.error",
-        "should_transfer_files": "YES",
-    },
-    silence_logs="debug",
-)
+machineAd_file = os.environ.get("_CONDOR_MACHINE_AD")
+
+site = None
+
+with open(machineAd_file) as f:
+    lines = f.readlines()
+    for l in lines:
+        if l.startswith("SiteName"):
+            site = l.split("= ")[1].strip("\n")
+            break
+
+logger.debug("SiteName is: %s" % site)
+
+if not site:
+    cluster = HTCondorCluster(
+        job_cls=MyHTCondorJob,
+        cores=1,
+        memory="3 GB",
+        disk="1 GB",
+        scheduler_options={
+            "host": ":{}".format(sched_port),
+            "dashboard_address": "127.0.0.1:{}".format(dash_port),
+        },
+        job_extra={
+            "+OWNER": '"' + name.split("-")[0] + '"',
+            "log": "wn.log",
+            "output": "wn.out",
+            "error": "wn.error",
+            "should_transfer_files": "YES",
+        },
+        silence_logs="debug",
+    )
+else:
+    cluster = HTCondorCluster(
+        job_cls=MyHTCondorJob,
+        cores=1,
+        memory="3 GB",
+        disk="1 GB",
+        scheduler_options={
+            "host": ":{}".format(sched_port),
+            "dashboard_address": "127.0.0.1:{}".format(dash_port),
+        },
+        job_extra={
+            "+OWNER": '"' + name.split("-")[0] + '"',
+            "log": "wn.log",
+            "output": "wn.out",
+            "error": "wn.error",
+            "should_transfer_files": "YES",
+            "requirements": "( SiteName == %s )" % site,
+        },
+        silence_logs="debug",
+    )
 
 # Set the cluster to adaptiv mode, with min and max
 # TODO: pass minumum and maximum by ENV VAR

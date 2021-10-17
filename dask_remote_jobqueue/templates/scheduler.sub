@@ -1,4 +1,6 @@
 universe   = vanilla
+requestCpus = 1
+requestMemory = 2000
 executable = scheduler.sh 
 log        = dask_scheduler.log
 output     = dask_scheduler.out
