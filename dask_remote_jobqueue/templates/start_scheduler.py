@@ -70,7 +70,7 @@ with open(machineAd_file) as f:
     lines = f.readlines()
     for l in lines:
         if l.startswith("SiteName"):
-            site = l.split("= ")[1]
+            site = l.split("= ")[1].strip("\n")
             break
 
 logger.debug("SiteName is: %s" % site)
