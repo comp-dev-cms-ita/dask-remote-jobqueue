@@ -75,7 +75,7 @@ with open(machineAd_file) as f:
 
 logger.debug("SiteName is: %s" % site)
 
-if not site: 
+if not site:
     cluster = HTCondorCluster(
         job_cls=MyHTCondorJob,
         cores=1,
@@ -90,7 +90,7 @@ if not site:
             "log": "wn.log",
             "output": "wn.out",
             "error": "wn.error",
-            "should_transfer_files": "YES"
+            "should_transfer_files": "YES",
         },
         silence_logs="debug",
     )
@@ -110,7 +110,7 @@ else:
             "output": "wn.out",
             "error": "wn.error",
             "should_transfer_files": "YES",
-            "requirements": "( SiteName == %s )" % site
+            "requirements": "( SiteName == %s )" % site,
         },
         silence_logs="debug",
     )
