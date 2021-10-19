@@ -32,6 +32,7 @@ class RemoteHTCondor(object):
         user: str = "NONE",
         ssh_url_port: int = 8122,
         asynchronous: bool = True,  # Set by dask-labextension but not used in this class
+        sitename: str = "",
     ):
 
         logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
@@ -58,6 +59,7 @@ class RemoteHTCondor(object):
         self.ssh_url_port: int = ssh_url_port
 
         self.cluster_id: str = ""
+        self.sitename: str = sitename
 
         # Jupyter env vars
         self.name = (
@@ -160,6 +162,10 @@ class RemoteHTCondor(object):
                     "job_submit.sh",
                 ]
 
+                selected_sitename = "# requirements: Nil"
+                if self.sitename:
+                    selected_sitename = f"requirements: ( SiteName == {self.sitename} )"
+
                 for f in files:
                     tmpl = env.get_template(f)
                     with open(tmpdirname + "/" + f, "w") as dest:
@@ -180,6 +186,7 @@ class RemoteHTCondor(object):
                             htc_schedd_name=self.htc_schedd_name,
                             htc_scitoken_file=self.htc_scitoken_file,
                             htc_sec_method=self.htc_sec_method,
+                            selected_sitename=selected_sitename,
                         )
                         logger.debug(dest.name)
                         logger.debug(render)
