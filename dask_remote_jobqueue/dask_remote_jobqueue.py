@@ -164,7 +164,9 @@ class RemoteHTCondor(object):
 
                 selected_sitename = "# requirements: Nil"
                 if self.sitename:
-                    selected_sitename = f"requirements: ( SiteName == {self.sitename} )"
+                    selected_sitename = (
+                        f"requirements = ( SiteName == {self.sitename} )"
+                    )
 
                 for f in files:
                     tmpl = env.get_template(f)
