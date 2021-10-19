@@ -165,7 +165,7 @@ class RemoteHTCondor(object):
                 selected_sitename = "# requirements: Nil"
                 if self.sitename:
                     selected_sitename = (
-                        f"requirements = ( SiteName == {self.sitename} )"
+                        f'requirements = ( SiteName == "{self.sitename}" )'
                     )
 
                 for f in files:
