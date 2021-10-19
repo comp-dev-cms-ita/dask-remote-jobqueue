@@ -12,9 +12,9 @@ A custom Dask remote jobqueue for HTCondor, using [ssh forwarding via ssh-jhub-f
 The custom class spawn a Dask Scheduler inside the HTCondor cluster with a companion HTTP Controller to interact with
 the Dask Cluster, for example, with actions like:
 
-* start
-* stop
-* scale
+- start
+- stop
+- scale
 
 The service connections are forwarded to the Dask Client and the Dask Scheduler interact directly with
 the Dask Worker Nodes.
