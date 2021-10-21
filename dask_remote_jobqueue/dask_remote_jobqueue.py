@@ -62,6 +62,9 @@ class RemoteHTCondor(object):
         self.sitename: str = sitename
 
         # Jupyter env vars
+        self.jhub_ssh_url = (
+            os.environ.get("JHUB_SSH_URL", user)
+        )
         self.name = (
             os.environ.get("JUPYTERHUB_USER", user) + f"-{self.sched_port}.dask-ssh"
         )
@@ -172,6 +175,7 @@ class RemoteHTCondor(object):
                     tmpl = env.get_template(f)
                     with open(tmpdirname + "/" + f, "w") as dest:
                         render = tmpl.render(
+                            jhub_ssh_url=self.jhub_ssh_url,
                             name=self.name,
                             token=self.token,
                             sched_port=self.sched_port,

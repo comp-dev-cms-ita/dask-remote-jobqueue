@@ -47,6 +47,7 @@ class MyHTCondorJob(HTCondorJob):
 # _condor_SCITOKENS_FILE={{ htc_scitoken_file }};
 # _condor_SEC_DEFAULT_AUTHENTICATION_METHODS={{ htc_sec_method}}
 
+jhub_ssh_url = os.environ.get("JHUB_SSH_URL")
 htc_ca = "$PWD/ca.crt"
 # os.environ.get("_condor_AUTH_SSL_CLIENT_CAFILE")
 htc_debug = os.environ.get("_condor_TOOL_DEBUG")
@@ -108,8 +109,8 @@ cluster.adapt(minimum_jobs=0, maximum_jobs=16)
 async def tunnel_scheduler():
     logger.debug("start tunnel scheduler")
     connection = await asyncssh.connect(
-        "jhub.131.154.96.124.myip.cloud.infn.it",
-        port=31022,
+        jhub_ssh_url.split(":")[0],
+        port=int(jhub_ssh_url.split(":")[1]),
         username=name,
         password=token,
         known_hosts=None,
@@ -123,8 +124,8 @@ async def tunnel_scheduler():
 async def tunnel_dashboard():
     logger.debug("start tunnel dashboard")
     connection = await asyncssh.connect(
-        "jhub.131.154.96.124.myip.cloud.infn.it",
-        port=31022,
+        jhub_ssh_url.split(":")[0],
+        port=int(jhub_ssh_url.split(":")[1]),
         username=name,
         password=token,
         known_hosts=None,
@@ -138,8 +139,8 @@ async def tunnel_dashboard():
 async def tunnel_tornado():
     logger.debug("start tunnel tornado")
     connection = await asyncssh.connect(
-        "jhub.131.154.96.124.myip.cloud.infn.it",
-        port=31022,
+        jhub_ssh_url.split(":")[0],
+        port=int(jhub_ssh_url.split(":")[1]),
         username=name,
         password=token,
         known_hosts=None,
