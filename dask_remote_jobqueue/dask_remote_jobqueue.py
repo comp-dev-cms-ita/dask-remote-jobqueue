@@ -109,6 +109,10 @@ class RemoteHTCondor(object):
         self.scheduler_address: str = ""
         self.dashboard_link: str = ""
 
+    @property
+    def logs_port(self) -> int:
+        return self.tornado_port
+
     def __await__(self):
         """Make the class awaitable.
 
