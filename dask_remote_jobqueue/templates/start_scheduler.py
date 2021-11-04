@@ -10,6 +10,7 @@ import os
 import asyncssh
 import tornado.ioloop
 import tornado.web
+from dask.distributed import Client
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
@@ -169,6 +170,77 @@ class CloseHandler(tornado.web.RequestHandler):
         self.write("cluster closed")
 
 
+class LogsHandler(tornado.web.RequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # self._client = Client(cluster)
+        self._client = Client("tcp://127.0.0.1:57122", asynchronous=True)
+
+    async def get(self):
+        scheduler_logs: list[tuple] = await self._client.get_scheduler_logs()
+        worker_logs: list[tuple] = await self._client.get_worker_logs()
+        nanny_logs: list[tuple] = await self._client.get_worker_logs(nanny=True)
+        self.write(
+            """<!DOCTYPE html>
+            <html>
+            <head>
+            <title>Logs</title>
+            <meta http-equiv="refresh" content="30">
+            </head>
+            <style>
+            table, th, td {
+            border: 1px solid black;
+            }
+
+            table {
+            width: 100%;
+            }
+            </style>
+            <body>
+            """
+        )
+        self.write("<p>")
+        self.write('<a href="#scheduler">Scheduler</a> | ')
+        self.write('<a href="#workers">Workers</a> | ')
+        self.write('<a href="#nannies">Nannies</a>')
+        self.write("</p>")
+        self.write('<h1 id="scheduler">Scheduler</h1><hr>')
+        self.write("<table><tr><td>Level</td><td>Message</td></tr>")
+        for level, log_text in scheduler_logs:
+            self.write(
+                f"""<tr>
+                        <td>{level}</td>
+                        <td>{log_text}</td>
+                    </tr>"""
+            )
+        self.write("</table>")
+        self.write('<h1 id="workers">Workers</h1><hr>')
+        for worker_addr, logs in worker_logs.items():
+            self.write(f"<h3>{worker_addr}</h3><hr>")
+            self.write("<table><tr><td>Level</td><td>Message</td></tr>")
+            for level, log_text in logs:
+                self.write(
+                    f"""<tr>
+                            <td>{level}</td>
+                            <td>{log_text}</td>
+                        </tr>"""
+                )
+            self.write("</table>")
+        self.write('<h1 id="nannies">Nannies</h1><hr>')
+        for nanny_addr, logs in nanny_logs.items():
+            self.write(f"<h3>{nanny_addr}</h3><hr>")
+            self.write("<table><tr><td>Level</td><td>Message</td></tr>")
+            for level, log_text in logs:
+                self.write(
+                    f"""<tr>
+                            <td>{level}</td>
+                            <td>{log_text}</td>
+                        </tr>"""
+                )
+            self.write("</table>")
+        self.write("</body></html>")
+
+
 class ScaleJobHandler(tornado.web.RequestHandler):
     def get(self):
         num_jobs = int(self.get_argument("num"))
@@ -256,6 +328,7 @@ def make_app():
             (r"/workers", ScaleWorkerHandler),
             (r"/workerSpec", WorkerSpecHandler),
             (r"/close", CloseHandler),
+            (r"/logs", LogsHandler),
         ],
         debug=True,
     )
