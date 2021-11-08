@@ -173,8 +173,7 @@ class CloseHandler(tornado.web.RequestHandler):
 class LogsHandler(tornado.web.RequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self._client = Client(cluster)
-        self._client = Client("tcp://127.0.0.1:57122", asynchronous=True)
+        self._client = Client(cluster)
 
     async def get(self):
         scheduler_logs: list[tuple] = await self._client.get_scheduler_logs()
@@ -185,27 +184,75 @@ class LogsHandler(tornado.web.RequestHandler):
             <html>
             <head>
             <title>Logs</title>
-            <meta http-equiv="refresh" content="30">
+            <!--<meta http-equiv="refresh" content="60">-->
             </head>
             <style>
+            .collapsible {
+                background-color: #ecb172;
+                color: black;
+                font-weight: bold;
+                cursor: pointer;
+                padding: 18px;
+                width: 100%;
+                border: none;
+                text-align: left;
+                outline: none;
+                font-size: 15px;
+                border-bottom: 
+            }
+
+            .active, .collapsible:hover {
+                background-color: #ec8f72;
+            }
+
+            .content {
+                padding: 0 18px;
+                display: none;
+                overflow: hidden;
+                background-color: #fafafa;
+            }
+
             table, th, td {
-            border: 1px solid black;
+                border: 1px solid black;
             }
 
             table {
-            width: 100%;
+                width: 100%;
+            }
+            
+            tr:nth-child(even) {
+                background-color: #ffd9b1;
+            }
+            
+            .sticky {
+                position: fixed;
+                top: 0;
+                width: 100%;
+            }
+            
+            .header {
+                background: #ecb172;
+                padding: 6px;
+                border-radius: 6px;
+                margin-bottom: 1em;
             }
             </style>
             <body>
             """
         )
-        self.write("<p>")
+        self.write('<div class="header" id="myHeader"><p>')
+        self.write('<a href="javascript:reload();">RELOAD</a>')
+        self.write("</p>")
+        self.write("<p>Go to: ")
         self.write('<a href="#scheduler">Scheduler</a> | ')
         self.write('<a href="#workers">Workers</a> | ')
         self.write('<a href="#nannies">Nannies</a>')
-        self.write("</p>")
-        self.write('<h1 id="scheduler">Scheduler</h1><hr>')
-        self.write("<table><tr><td>Level</td><td>Message</td></tr>")
+        self.write("</p></div>")
+
+        self.write(
+            '<button type="button" class="collapsible" id="scheduler">Scheduler</button><div class="content">'
+        )
+        self.write("<hr><table><tr><td>Level</td><td>Message</td></tr>")
         for level, log_text in scheduler_logs:
             self.write(
                 f"""<tr>
@@ -213,10 +260,13 @@ class LogsHandler(tornado.web.RequestHandler):
                         <td>{log_text}</td>
                     </tr>"""
             )
-        self.write("</table>")
-        self.write('<h1 id="workers">Workers</h1><hr>')
-        for worker_addr, logs in worker_logs.items():
-            self.write(f"<h3>{worker_addr}</h3><hr>")
+        self.write("</table><hr></div>")
+
+        self.write(
+            '<button type="button" class="collapsible" id="workers">Workers</button><div class="content">'
+        )
+        for worker_num, (worker_addr, logs) in enumerate(worker_logs.items()):
+            self.write(f"<h3>Worker[{worker_num}]-> {worker_addr}</h3><hr>")
             self.write("<table><tr><td>Level</td><td>Message</td></tr>")
             for level, log_text in logs:
                 self.write(
@@ -225,10 +275,14 @@ class LogsHandler(tornado.web.RequestHandler):
                             <td>{log_text}</td>
                         </tr>"""
                 )
-            self.write("</table>")
-        self.write('<h1 id="nannies">Nannies</h1><hr>')
-        for nanny_addr, logs in nanny_logs.items():
-            self.write(f"<h3>{nanny_addr}</h3><hr>")
+            self.write("</table><hr>")
+        self.write("</div>")
+
+        self.write(
+            '<button type="button" class="collapsible" id="nannies">Nannies</button><div class="content">'
+        )
+        for nanny_num, (nanny_addr, logs) in enumerate(nanny_logs.items()):
+            self.write(f"<h3>Nanny[{nanny_num}]-> {nanny_addr}</h3><hr>")
             self.write("<table><tr><td>Level</td><td>Message</td></tr>")
             for level, log_text in logs:
                 self.write(
@@ -237,8 +291,46 @@ class LogsHandler(tornado.web.RequestHandler):
                             <td>{log_text}</td>
                         </tr>"""
                 )
-            self.write("</table>")
-        self.write("</body></html>")
+            self.write("</table><hr>")
+        self.write("</div>")
+        self.write("</body>")
+        self.write(
+            """<script>
+var coll = document.getElementsByClassName("collapsible");
+var i;
+
+for (i = 0; i < coll.length; i++) {
+  coll[i].addEventListener("click", function() {
+    this.classList.toggle("active");
+    var content = this.nextElementSibling;
+    if (content.style.display === "block") {
+      content.style.display = "none";
+    } else {
+      content.style.display = "block";
+    }
+  });
+}
+
+window.onscroll = function() {myFunction()};
+
+var header = document.getElementById("myHeader");
+var sticky = header.offsetTop;
+
+function myFunction() {
+  if (window.pageYOffset > sticky) {
+    header.classList.add("sticky");
+  } else {
+    header.classList.remove("sticky");
+  }
+}
+
+var origin_location = window.location.href;
+function reload() {
+    window.location.href = origin_location;
+}
+</script>"""
+        )
+        self.write("</html>")
 
 
 class ScaleJobHandler(tornado.web.RequestHandler):
