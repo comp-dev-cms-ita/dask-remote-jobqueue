@@ -63,6 +63,10 @@ sched_port = int(os.environ.get("SCHED_PORT", "42000"))
 dash_port = int(os.environ.get("DASH_PORT", "42001"))
 tornado_port = int(os.environ.get("TORNADO_PORT", "42002"))
 
+##
+# Local testing
+# tornado_port = 8181
+
 site = None
 machine_ad_file = os.environ.get("_CONDOR_MACHINE_AD", "")
 
@@ -79,6 +83,7 @@ logger.debug(f"SiteName is: {site}")
 scheduler_options_vars = {
     "host": ":{}".format(sched_port),
     "dashboard_address": "127.0.0.1:{}".format(dash_port),
+    "idle_timeout": "1h",
 }
 job_extra_vars = {
     "+OWNER": '"' + name.split("-")[0] + '"',
@@ -90,6 +95,12 @@ job_extra_vars = {
 
 if site:
     job_extra_vars["requirements"] = f"( SiteName == {site} )"
+
+##
+# Local testing
+#
+# from dask.distributed import LocalCluster
+# cluster = LocalCluster(n_workers=1, processes=False)
 
 cluster = HTCondorCluster(
     job_cls=MyHTCondorJob,
@@ -171,14 +182,14 @@ class CloseHandler(tornado.web.RequestHandler):
 
 
 class LogsHandler(tornado.web.RequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._client = Client(cluster)
-
     async def get(self):
-        scheduler_logs: list[tuple] = await self._client.get_scheduler_logs()
-        worker_logs: list[tuple] = await self._client.get_worker_logs()
-        nanny_logs: list[tuple] = await self._client.get_worker_logs(nanny=True)
+        # https://github.com/dask/distributed/blob/55ff8337e95a55abf9268c19342572a09e1066ac/distributed/deploy/cluster.py#L295
+        cluster_logs: str = cluster.get_logs(
+            cluster=True, scheduler=False, workers=False
+        ).get("Cluster", "")
+        scheduler_logs: list[tuple] = cluster.scheduler.get_logs()
+        worker_logs: list[tuple] = await cluster.scheduler.get_worker_logs()
+        nanny_logs: list[tuple] = await cluster.scheduler.get_worker_logs(nanny=True)
         self.write(
             """<!DOCTYPE html>
             <html>
@@ -236,18 +247,39 @@ class LogsHandler(tornado.web.RequestHandler):
                 border-radius: 6px;
                 margin-bottom: 1em;
             }
+            
+            #reload {
+                font-weight: bold; 
+                font-size: larger;
+                position: absolute;
+                right: 0;
+                padding-right: 1em;
+            }
             </style>
             <body>
             """
         )
         self.write('<div class="header" id="myHeader"><p>')
-        self.write('<a href="javascript:reload();">RELOAD</a>')
-        self.write("</p>")
-        self.write("<p>Go to: ")
-        self.write('<a href="#scheduler">Scheduler</a> | ')
-        self.write('<a href="#workers">Workers</a> | ')
+        self.write('<span style="padding-left: 1em;">Go to &rarr; </span>')
+        self.write('<a href="#cluster">Cluster</a> &bull; ')
+        self.write('<a href="#scheduler">Scheduler</a> &bull; ')
+        self.write('<a href="#workers">Workers</a> &bull; ')
         self.write('<a href="#nannies">Nannies</a>')
+        self.write('<a href="javascript:reload();" id="reload">↺</a>')
         self.write("</p></div>")
+
+        self.write(
+            '<button type="button" class="collapsible" id="cluster">Cluster</button><div class="content">'
+        )
+        self.write("<hr><table><tr><td>Level</td><td>Message</td></tr>")
+        for log_text in cluster_logs.split("\n"):
+            self.write(
+                f"""<tr>
+                        <td>-</td>
+                        <td>{log_text}</td>
+                    </tr>"""
+            )
+        self.write("</table><hr></div>")
 
         self.write(
             '<button type="button" class="collapsible" id="scheduler">Scheduler</button><div class="content">'
@@ -265,6 +297,7 @@ class LogsHandler(tornado.web.RequestHandler):
         self.write(
             '<button type="button" class="collapsible" id="workers">Workers</button><div class="content">'
         )
+        self.write(f"<h5>#workers: {len(worker_logs)}</h5>")
         for worker_num, (worker_addr, logs) in enumerate(worker_logs.items()):
             self.write(f"<h3>Worker[{worker_num}]-> {worker_addr}</h3><hr>")
             self.write("<table><tr><td>Level</td><td>Message</td></tr>")
@@ -281,6 +314,7 @@ class LogsHandler(tornado.web.RequestHandler):
         self.write(
             '<button type="button" class="collapsible" id="nannies">Nannies</button><div class="content">'
         )
+        self.write(f"<h5>#nannies: {len(nanny_logs)}</h5>")
         for nanny_num, (nanny_addr, logs) in enumerate(nanny_logs.items()):
             self.write(f"<h3>Nanny[{nanny_num}]-> {nanny_addr}</h3><hr>")
             self.write("<table><tr><td>Level</td><td>Message</td></tr>")
@@ -398,14 +432,24 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
             }"""
         workers = {}
         for num, (_, spec) in enumerate(cluster.worker_spec.items()):
-            memory_limit = spec["options"]["memory"].lower()
-            if memory_limit.find("gb"):
-                memory_limit = int(memory_limit.replace("gb", "").strip()) * 10 ** 9
-            else:
-                memory_limit = -1
-            # See dask-labextension make_cluster_model
+            logger.debug(f"[workerSpec][{num}][{spec}]")
+            memory_limit = spec["options"].get("memory", "").lower()
+            if not memory_limit:
+                memory_limit = spec["options"].get("memory_limit", "")
+            if memory_limit:
+                if isinstance(memory_limit, str):
+                    if memory_limit.find("gb"):
+                        memory_limit = (
+                            int(memory_limit.replace("gb", "").strip()) * 10 ** 9
+                        )
+                elif not isinstance(memory_limit, int):
+                    memory_limit = -1
+                # See dask-labextension make_cluster_model
+            n_cores = spec["options"].get("cores", -1)
+            if n_cores == -1:
+                n_cores = spec["options"].get("nthreads", -1)
             workers[str(num)] = {
-                "nthreads": spec["options"]["cores"],
+                "nthreads": n_cores,
                 "memory_limit": memory_limit,
             }
         self.write(json.dumps(workers))
