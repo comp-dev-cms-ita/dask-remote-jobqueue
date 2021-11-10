@@ -3,3 +3,4 @@ dask_remote_jobqueue.egg-info/*
 dist/*
 .venv
 .venv/*
+build/
