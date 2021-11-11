@@ -10,7 +10,7 @@ import os
 import asyncssh
 import tornado.ioloop
 import tornado.web
-from dask.distributed import Client
+from dask.distributed import Client, Status
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
@@ -476,9 +476,16 @@ async def main():
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
     loop.create_task(tunnel_tornado())
-    while True:
-        logging.debug("running")
+    running = True
+    while running:
         await asyncio.sleep(60)
+        logging.debug(
+            f"Cluster: {cluster.status} - Scheduler: {cluster.scheduler.status}"
+        )
+        if cluster.scheduler.status in [Status.closed, Status.failed]:
+            running = False
+    else:
+        del cluster
 
 
 if __name__ == "__main__":
