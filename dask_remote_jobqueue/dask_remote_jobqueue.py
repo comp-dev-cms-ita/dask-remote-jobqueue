@@ -9,10 +9,10 @@ import json
 import os
 import tempfile
 from inspect import isawaitable
+from multiprocessing import Process
 from random import randrange
 from re import I
 from subprocess import STDOUT, check_output
-from threading import Thread
 from typing import Union
 
 import httpx
@@ -43,7 +43,7 @@ class RemoteHTCondor(object):
         # Inner class status
         self.status: int = 0
         self.asynchronous: bool = asynchronous
-        self.thread = None
+        self.process = None
         self.loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
 
         # Address of the dask scheduler and its dashboard
@@ -280,7 +280,7 @@ class RemoteHTCondor(object):
 
             if not self.asynchronous:
 
-                class ConnectionLoop(Thread):
+                class ConnectionLoop(Process):
                     def __init__(self, *args, **kwargs):
                         super().__init__()
                         self.cur_loop: "asyncio.AbstractEventLoop"
@@ -336,7 +336,7 @@ class RemoteHTCondor(object):
                         # self.cur_loop.create_task(_main_loop())
                         self.cur_loop.run_forever()
 
-                self.thread = ConnectionLoop(
+                self.process = ConnectionLoop(
                     ssh_url_port=self.ssh_url_port,
                     username=self.name,
                     token=self.token,
@@ -344,7 +344,7 @@ class RemoteHTCondor(object):
                     dash_port=self.dash_port,
                     tornado_port=self.tornado_port,
                 )
-                self.thread.start()
+                self.process.start()
 
             else:
                 self.connection = await asyncssh.connect(
@@ -404,8 +404,8 @@ class RemoteHTCondor(object):
         else:
             cur_loop = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._close())
-            self.thread.stop()
-            self.thread.join()
+            self.process.stop()
+            self.process.terminate()
 
     @logger.catch
     async def _close(self):
