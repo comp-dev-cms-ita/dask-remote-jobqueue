@@ -49,7 +49,6 @@ class RemoteHTCondor(object):
                 await asyncio.sleep(60)
 
             self.loop.create_task(main_loop())
-            self.loop.run_forever()
 
         # Address of the dask scheduler and its dashboard
         self.address: str = ""
@@ -340,7 +339,7 @@ class RemoteHTCondor(object):
             self.loop.run_until_complete(self._close())
 
     @logger.catch
-    async def close(self):
+    async def _close(self):
         # Close the dask cluster
         target_url = f"http://127.0.0.1:{self.tornado_port}/close"
         logger.debug(f"[Scheduler][close][url: {target_url}]")
@@ -369,7 +368,7 @@ class RemoteHTCondor(object):
             self.loop.run_until_complete(self._scale(n))
 
     @logger.catch
-    async def scale(self, n: int):
+    async def _scale(self, n: int):
         # Scale the cluster
         target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num={n}"
         logger.debug(f"[Scheduler][scale][num: {n}][url: {target_url}]")
@@ -394,5 +393,5 @@ class RemoteHTCondor(object):
             self.loop.run_until_complete(self._adapt(minimum, maximum))
 
     @logger.catch
-    async def adapt(self, minimum: int, maximum: int):
+    async def _adapt(self, minimum: int, maximum: int):
         pass
