@@ -280,18 +280,21 @@ class RemoteHTCondor(object):
                     "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
                 )
                 await cur_conn.wait_closed()
+                logger.debug("Closed sched port forward connection")
 
             async def forward_dash():
                 cur_conn = await self.connection.forward_local_port(
                     "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
                 )
                 await cur_conn.wait_closed()
+                logger.debug("Closed dash port forward connection")
 
             async def forward_tornado():
                 cur_conn = await self.connection.forward_local_port(
                     "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
                 )
                 await cur_conn.wait_closed()
+                logger.debug("Closed tornado port forward connection")
 
             loop = asyncio.get_running_loop()
             loop.create_task(forward_sched())
