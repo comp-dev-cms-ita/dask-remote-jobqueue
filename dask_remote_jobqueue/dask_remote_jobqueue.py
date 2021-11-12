@@ -293,7 +293,7 @@ class RemoteHTCondor(object):
                         self.tornado_port = kwargs["tornado_port"]
 
                     def stop(self):
-                        self.cur_loop.close()
+                        self.cur_loop.stop()
 
                     def run(self):
                         async def forward():
