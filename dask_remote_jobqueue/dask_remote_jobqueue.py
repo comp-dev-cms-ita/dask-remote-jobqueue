@@ -258,6 +258,7 @@ class RemoteHTCondor(object):
                     ex = Exception("Scheduler job in error {}".format(job_status))
                     raise ex
 
+            await asyncio.sleep(2)
             # Prepare the ssh tunnel
             ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
 
