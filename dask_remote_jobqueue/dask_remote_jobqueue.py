@@ -280,45 +280,70 @@ class RemoteHTCondor(object):
 
             if not self.asynchronous:
 
-                def main_loop():
-                    async def forward():
-                        self.connection = await asyncssh.connect(
-                            ssh_url,
-                            port=self.ssh_url_port,
-                            username=self.name,
-                            password=self.token,
-                            known_hosts=None,
-                        )
-                        sched_conn = await self.connection.forward_local_port(
-                            "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
-                        )
+                class ConnectionLoop(Thread):
+                    def __init__(self, *args, **kwargs):
+                        super().__init__()
+                        self.cur_loop: "asyncio.AbstractEventLoop"
+                        self.connection = None
+                        self.ssh_url_port = kwargs["ssh_url_port"]
+                        self.username = kwargs["username"]
+                        self.token = kwargs["token"]
+                        self.sched_port = kwargs["sched_port"]
+                        self.dash_port = kwargs["dash_port"]
+                        self.tornado_port = kwargs["tornado_port"]
 
-                        dash_port = await self.connection.forward_local_port(
-                            "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
-                        )
+                    def stop(self):
+                        self.cur_loop.close()
 
-                        tornado_port = await self.connection.forward_local_port(
-                            "127.0.0.1",
-                            self.tornado_port,
-                            "127.0.0.1",
-                            self.tornado_port,
-                        )
+                    def run(self):
+                        async def forward():
+                            self.connection = await asyncssh.connect(
+                                ssh_url,
+                                port=self.ssh_url_port,
+                                username=self.username,
+                                password=self.token,
+                                known_hosts=None,
+                            )
+                            sched_conn = await self.connection.forward_local_port(
+                                "127.0.0.1",
+                                self.sched_port,
+                                "127.0.0.1",
+                                self.sched_port,
+                            )
 
-                        await sched_conn.wait_closed()
-                        await dash_port.wait_closed()
-                        await tornado_port.wait_closed()
+                            dash_port = await self.connection.forward_local_port(
+                                "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
+                            )
 
-                    # async def _main_loop():
-                    #    while True:
-                    #        await asyncio.sleep(60)
+                            tornado_port = await self.connection.forward_local_port(
+                                "127.0.0.1",
+                                self.tornado_port,
+                                "127.0.0.1",
+                                self.tornado_port,
+                            )
 
-                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
-                    asyncio.set_event_loop(cur_loop)
-                    cur_loop.create_task(forward())
-                    # cur_loop.create_task(_main_loop())
-                    cur_loop.run_forever()
+                            await sched_conn.wait_closed()
+                            await dash_port.wait_closed()
+                            await tornado_port.wait_closed()
 
-                self.thread = Thread(target=main_loop)
+                        # async def _main_loop():
+                        #    while True:
+                        #        await asyncio.sleep(60)
+
+                        self.cur_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(self.cur_loop)
+                        self.cur_loop.create_task(forward())
+                        # self.cur_loop.create_task(_main_loop())
+                        self.cur_loop.run_forever()
+
+                self.thread = ConnectionLoop(
+                    ssh_url_port=self.ssh_url_port,
+                    username=self.name,
+                    token=self.token,
+                    sched_port=self.sched_port,
+                    dash_port=self.dash_port,
+                    tornado_port=self.tornado_port,
+                )
                 self.thread.start()
 
             else:
@@ -379,7 +404,7 @@ class RemoteHTCondor(object):
         else:
             cur_loop = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._close())
-            cur_loop.stop()
+            self.thread.stop()
             self.thread.join()
 
     @logger.catch
