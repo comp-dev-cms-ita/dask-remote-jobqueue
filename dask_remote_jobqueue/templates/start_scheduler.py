@@ -478,6 +478,8 @@ async def main():
     loop.create_task(tunnel_tornado())
     running = True
     while running:
+        global cluster
+
         await asyncio.sleep(60)
         logging.debug(
             f"Cluster: {cluster.status} - Scheduler: {cluster.scheduler.status}"
