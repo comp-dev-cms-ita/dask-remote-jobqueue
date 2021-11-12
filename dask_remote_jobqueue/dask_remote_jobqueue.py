@@ -283,7 +283,8 @@ class RemoteHTCondor(object):
                 class ConnectionLoop(Process):
                     def __init__(self, *args, **kwargs):
                         super().__init__()
-                        self.cur_loop = None
+                        self.cur_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(self.cur_loop)
                         self.connection = None
                         self.ssh_url_port = kwargs["ssh_url_port"]
                         self.username = kwargs["username"]
@@ -330,8 +331,6 @@ class RemoteHTCondor(object):
                         #    while True:
                         #        await asyncio.sleep(60)
 
-                        self.cur_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(self.cur_loop)
                         self.cur_loop.create_task(forward())
                         # self.cur_loop.create_task(_main_loop())
                         self.cur_loop.run_forever()
