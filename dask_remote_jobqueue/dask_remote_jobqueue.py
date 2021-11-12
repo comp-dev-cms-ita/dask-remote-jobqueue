@@ -283,7 +283,7 @@ class RemoteHTCondor(object):
                 class ConnectionLoop(Process):
                     def __init__(self, *args, **kwargs):
                         super().__init__()
-                        self.cur_loop: "asyncio.AbstractEventLoop"
+                        self.cur_loop = None
                         self.connection = None
                         self.ssh_url_port = kwargs["ssh_url_port"]
                         self.username = kwargs["username"]
