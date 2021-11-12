@@ -238,7 +238,7 @@ class RemoteHTCondor(object):
 
             # While job is idle or hold
             while job_status in [1, 5]:
-                await asyncio.sleep(2)
+                await asyncio.sleep(2.0)
 
                 logger.debug("Check job status")
                 cmd = "condor_q {}.0 -json".format(self.cluster_id)
@@ -269,7 +269,7 @@ class RemoteHTCondor(object):
                     ex = Exception("Scheduler job in error {}".format(job_status))
                     raise ex
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(2.0)
             # Prepare the ssh tunnel
             ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
 
@@ -329,7 +329,7 @@ class RemoteHTCondor(object):
 
                         # async def _main_loop():
                         #    while True:
-                        #        await asyncio.sleep(60)
+                        #        await asyncio.sleep(60.0)
 
                         self.cur_loop.create_task(forward())
                         # self.cur_loop.create_task(_main_loop())
@@ -380,7 +380,7 @@ class RemoteHTCondor(object):
                 self.loop.create_task(forward_tornado())
 
             logger.debug("Wait for connections...")
-            await asyncio.sleep(6)
+            await asyncio.sleep(6.0)
 
             self.address = "localhost:{}".format(self.sched_port)
             self.dashboard_address = "http://localhost:{}".format(self.dash_port)
@@ -403,6 +403,7 @@ class RemoteHTCondor(object):
         else:
             cur_loop = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._close())
+            
             self.process.stop()
             self.process.terminate()
 
@@ -428,6 +429,8 @@ class RemoteHTCondor(object):
 
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
+        
+        asyncio.sleep(2.0)
 
     def scale(self, n: int):
         if self.asynchronous:
