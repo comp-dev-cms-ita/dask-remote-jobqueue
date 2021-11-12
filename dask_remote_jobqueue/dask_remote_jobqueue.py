@@ -12,6 +12,7 @@ from inspect import isawaitable
 from random import randrange
 from re import I
 from subprocess import STDOUT, check_output
+from threading import Thread
 from typing import Union
 
 import httpx
@@ -42,13 +43,8 @@ class RemoteHTCondor(object):
         # Inner class status
         self.status: int = 0
         self.asynchronous: bool = asynchronous
+        self.thread = None
         self.loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-        if not asynchronous:
-
-            async def main_loop():
-                await asyncio.sleep(60)
-
-            self.loop.run_until_complete(main_loop())
 
         # Address of the dask scheduler and its dashboard
         self.address: str = ""
@@ -131,7 +127,7 @@ class RemoteHTCondor(object):
         async def closure():
             logger.debug("await RemoteHTCondor")
             if self.status == 0:
-                await self.start()
+                await self._start()
             return self
 
         return closure().__await__()
@@ -152,7 +148,8 @@ class RemoteHTCondor(object):
         if self.asynchronous:
             return self._start()
         else:
-            self.loop.run_until_complete(self._start())
+            cur_loop = asyncio.get_event_loop()
+            cur_loop.run_until_complete(self._start())
 
     @logger.catch
     async def _start(self):
@@ -281,38 +278,82 @@ class RemoteHTCondor(object):
             logger.debug(f"username: {self.name}")
             logger.debug(f"password: {self.token}")
 
-            self.connection = await asyncssh.connect(
-                ssh_url,
-                port=self.ssh_url_port,
-                username=self.name,
-                password=self.token,
-                known_hosts=None,
-            )
+            if not self.asynchronous:
 
-            async def forward_sched():
-                cur_conn = await self.connection.forward_local_port(
-                    "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
+                def main_loop():
+                    async def forward():
+                        self.connection = await asyncssh.connect(
+                            ssh_url,
+                            port=self.ssh_url_port,
+                            username=self.name,
+                            password=self.token,
+                            known_hosts=None,
+                        )
+                        sched_conn = await self.connection.forward_local_port(
+                            "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
+                        )
+
+                        dash_port = await self.connection.forward_local_port(
+                            "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
+                        )
+
+                        tornado_port = await self.connection.forward_local_port(
+                            "127.0.0.1",
+                            self.tornado_port,
+                            "127.0.0.1",
+                            self.tornado_port,
+                        )
+
+                        await sched_conn.wait_closed()
+                        await dash_port.wait_closed()
+                        await tornado_port.wait_closed()
+
+                    # async def _main_loop():
+                    #    while True:
+                    #        await asyncio.sleep(60)
+
+                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
+                    asyncio.set_event_loop(cur_loop)
+                    cur_loop.create_task(forward())
+                    # cur_loop.create_task(_main_loop())
+                    cur_loop.run_forever()
+
+                self.thread = Thread(target=main_loop)
+                self.thread.start()
+
+            else:
+                self.connection = await asyncssh.connect(
+                    ssh_url,
+                    port=self.ssh_url_port,
+                    username=self.name,
+                    password=self.token,
+                    known_hosts=None,
                 )
-                await cur_conn.wait_closed()
-                logger.debug("Closed sched port forward connection")
 
-            async def forward_dash():
-                cur_conn = await self.connection.forward_local_port(
-                    "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
-                )
-                await cur_conn.wait_closed()
-                logger.debug("Closed dash port forward connection")
+                async def forward_sched():
+                    cur_conn = await self.connection.forward_local_port(
+                        "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
+                    )
+                    await cur_conn.wait_closed()
+                    logger.debug("Closed sched port forward connection")
 
-            async def forward_tornado():
-                cur_conn = await self.connection.forward_local_port(
-                    "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
-                )
-                await cur_conn.wait_closed()
-                logger.debug("Closed tornado port forward connection")
+                async def forward_dash():
+                    cur_conn = await self.connection.forward_local_port(
+                        "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
+                    )
+                    await cur_conn.wait_closed()
+                    logger.debug("Closed dash port forward connection")
 
-            self.loop.create_task(forward_sched())
-            self.loop.create_task(forward_dash())
-            self.loop.create_task(forward_tornado())
+                async def forward_tornado():
+                    cur_conn = await self.connection.forward_local_port(
+                        "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
+                    )
+                    await cur_conn.wait_closed()
+                    logger.debug("Closed tornado port forward connection")
+
+                self.loop.create_task(forward_sched())
+                self.loop.create_task(forward_dash())
+                self.loop.create_task(forward_tornado())
 
             logger.debug("Wait for connections...")
             await asyncio.sleep(6)
@@ -332,11 +373,16 @@ class RemoteHTCondor(object):
 
             self.status = 1
 
+    def __del__(self):
+        # TODO: remove thread
+        pass
+
     def close(self):
         if self.asynchronous:
             return self._close()
         else:
-            self.loop.run_until_complete(self._close())
+            cur_loop = asyncio.get_event_loop()
+            cur_loop.run_until_complete(self._close())
 
     @logger.catch
     async def _close(self):
@@ -365,7 +411,8 @@ class RemoteHTCondor(object):
         if self.asynchronous:
             return self._scale(n)
         else:
-            self.loop.run_until_complete(self._scale(n))
+            cur_loop = asyncio.get_event_loop()
+            cur_loop.run_until_complete(self._scale(n))
 
     @logger.catch
     async def _scale(self, n: int):
@@ -390,7 +437,8 @@ class RemoteHTCondor(object):
         if self.asynchronous:
             return self._adapt(minimum, maximum)
         else:
-            self.loop.run_until_complete(self._adapt(minimum, maximum))
+            cur_loop = asyncio.get_event_loop()
+            cur_loop.run_until_complete(self._adapt(minimum, maximum))
 
     @logger.catch
     async def _adapt(self, minimum: int, maximum: int):
