@@ -373,16 +373,14 @@ class RemoteHTCondor(object):
 
             self.status = 1
 
-    def __del__(self):
-        # TODO: remove thread
-        pass
-
     def close(self):
         if self.asynchronous:
             return self._close()
         else:
             cur_loop = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._close())
+            cur_loop.stop()
+            self.thread.join()
 
     @logger.catch
     async def _close(self):
