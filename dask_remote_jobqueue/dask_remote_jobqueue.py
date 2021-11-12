@@ -227,6 +227,8 @@ class RemoteHTCondor(object):
 
             # While job is idle or hold
             while job_status in [1, 5]:
+                await asyncio.sleep(2)
+
                 logger.debug("Check job status")
                 cmd = "condor_q {}.0 -json".format(self.cluster_id)
                 logger.debug(cmd)
@@ -256,8 +258,6 @@ class RemoteHTCondor(object):
                     ex = Exception("Scheduler job in error {}".format(job_status))
                     raise ex
 
-                await asyncio.sleep(2)
-
             # Prepare the ssh tunnel
             ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
 
@@ -278,19 +278,19 @@ class RemoteHTCondor(object):
                 cur_conn = await self.connection.forward_local_port(
                     "127.0.0.1", self.sched_port, "127.0.0.1", self.sched_port
                 )
-                cur_conn.wait_closed()
+                await cur_conn.wait_closed()
 
             async def forward_dash():
                 cur_conn = await self.connection.forward_local_port(
                     "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
                 )
-                cur_conn.wait_closed()
+                await cur_conn.wait_closed()
 
             async def forward_tornado():
                 cur_conn = await self.connection.forward_local_port(
                     "127.0.0.1", self.tornado_port, "127.0.0.1", self.tornado_port
                 )
-                cur_conn.wait_closed()
+                await cur_conn.wait_closed()
 
             loop = asyncio.get_running_loop()
             loop.create_task(forward_sched())
