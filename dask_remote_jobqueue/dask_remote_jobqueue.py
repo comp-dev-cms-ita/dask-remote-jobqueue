@@ -55,7 +55,7 @@ class RemoteHTCondor(object):
         logger.debug(f"generated -> dash_port: {self.dash_port}")
         logger.debug(f"generated -> tornado_port: {self.tornado_port}")
 
-        # Custo ssh port for the tunnel
+        # Custom ssh port for the tunnel
         self.ssh_url_port: int = ssh_url_port
 
         self.cluster_id: str = ""
