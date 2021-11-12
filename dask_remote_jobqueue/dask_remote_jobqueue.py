@@ -48,7 +48,7 @@ class RemoteHTCondor(object):
             async def main_loop():
                 await asyncio.sleep(60)
 
-            self.loop.create_task(main_loop())
+            self.loop.run_until_complete(main_loop())
 
         # Address of the dask scheduler and its dashboard
         self.address: str = ""
@@ -310,10 +310,9 @@ class RemoteHTCondor(object):
                 await cur_conn.wait_closed()
                 logger.debug("Closed tornado port forward connection")
 
-            loop = asyncio.get_running_loop()
-            loop.create_task(forward_sched())
-            loop.create_task(forward_dash())
-            loop.create_task(forward_tornado())
+            self.loop.create_task(forward_sched())
+            self.loop.create_task(forward_dash())
+            self.loop.create_task(forward_tornado())
 
             logger.debug("Wait for connections...")
             await asyncio.sleep(6)
@@ -329,6 +328,7 @@ class RemoteHTCondor(object):
 
             logger.debug(f"scheduler_address: {self.scheduler_address}")
             logger.debug(f"dashboard_link: {self.dashboard_link}")
+            logger.debug(f"tornado_address: http://localhost:{self.tornado_port}")
 
             self.status = 1
 
