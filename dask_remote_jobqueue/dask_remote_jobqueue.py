@@ -403,7 +403,7 @@ class RemoteHTCondor(object):
         else:
             cur_loop = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._close())
-            
+
             self.process.stop()
             self.process.terminate()
 
@@ -429,8 +429,8 @@ class RemoteHTCondor(object):
 
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
-        
-        asyncio.sleep(2.0)
+
+        await asyncio.sleep(2.0)
 
     def scale(self, n: int):
         if self.asynchronous:
