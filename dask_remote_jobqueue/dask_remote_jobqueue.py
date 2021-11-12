@@ -41,6 +41,15 @@ class RemoteHTCondor(object):
 
         # Inner class status
         self.status: int = 0
+        self.asynchronous: bool = asynchronous
+        self.loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+        if not asynchronous:
+
+            async def main_loop():
+                await asyncio.sleep(60)
+
+            self.loop.create_task(main_loop())
+            self.loop.run_forever()
 
         # Address of the dask scheduler and its dashboard
         self.address: str = ""
@@ -140,8 +149,14 @@ class RemoteHTCondor(object):
         if isawaitable(f):
             await f
 
+    def start(self):
+        if self.asynchronous:
+            return self._start()
+        else:
+            self.loop.run_until_complete(self._start())
+
     @logger.catch
-    async def start(self):
+    async def _start(self):
         """Start the dask cluster scheduler.
 
         The dask cluster scheduler will be launched as a HTCondor Job. Then, it
@@ -318,6 +333,12 @@ class RemoteHTCondor(object):
 
             self.status = 1
 
+    def close(self):
+        if self.asynchronous:
+            return self._close()
+        else:
+            self.loop.run_until_complete(self._close())
+
     @logger.catch
     async def close(self):
         # Close the dask cluster
@@ -341,6 +362,12 @@ class RemoteHTCondor(object):
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
+    def scale(self, n: int):
+        if self.asynchronous:
+            return self._scale(n)
+        else:
+            self.loop.run_until_complete(self._scale(n))
+
     @logger.catch
     async def scale(self, n: int):
         # Scale the cluster
@@ -359,6 +386,12 @@ class RemoteHTCondor(object):
             resp = await client.get(target_url)
             logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
             self.scheduler_info["workers"] = json.loads(resp.text)
+
+    def adapt(self, minimum: int, maximum: int):
+        if self.asynchronous:
+            return self._adapt(minimum, maximum)
+        else:
+            self.loop.run_until_complete(self._adapt(minimum, maximum))
 
     @logger.catch
     async def adapt(self, minimum: int, maximum: int):
