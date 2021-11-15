@@ -95,13 +95,14 @@ class ConnectionLoop(Process):
             await tornado_port.wait_closed()
             logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
 
-        # async def _main_loop():
-        #    while True:
-        #        await asyncio.sleep(60.0)
+        async def _main_loop():
+            while True:
+                logger.debug("[ConnectionLoop][running]")
+                await asyncio.sleep(6.0)
 
         logger.debug("[ConnectionLoop][create task]")
         self.cur_loop.create_task(forward())
-        # self.cur_loop.create_task(_main_loop())
+        self.cur_loop.create_task(_main_loop())
         logger.debug("[ConnectionLoop][run forever]")
         self.cur_loop.run_forever()
 
