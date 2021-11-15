@@ -98,7 +98,7 @@ class ConnectionLoop(Process):
         async def _main_loop():
             while True:
                 logger.debug("[ConnectionLoop][running]")
-                await asyncio.sleep(6.0)
+                await asyncio.sleep(14.0)
 
         logger.debug("[ConnectionLoop][create task]")
         self.cur_loop.create_task(forward())
