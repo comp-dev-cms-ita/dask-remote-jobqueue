@@ -38,6 +38,7 @@ class ConnectionLoop(Process):
         dash_port: int = -1,
         tornado_port: int = -1,
     ):
+        logger.debug(f"[ConnectionLoop][init][{ssh_url}][{ssh_url_port}]")
         super().__init__()
         self.cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
         asyncio.set_event_loop(self.cur_loop)
@@ -51,10 +52,14 @@ class ConnectionLoop(Process):
         self.tornado_port: int = tornado_port
 
     def stop(self):
+        logger.debug("[ConnectionLoop][stop forever loop]")
         self.cur_loop.stop()
 
     def run(self):
         async def forward():
+            logger.debug(
+                f"[ConnectionLoop][connect][{self.ssh_url}][{self.ssh_url_port}][{self.token}]"
+            )
             self.connection = await asyncssh.connect(
                 host=self.ssh_url,
                 port=self.ssh_url_port,
@@ -62,6 +67,7 @@ class ConnectionLoop(Process):
                 password=self.token,
                 known_hosts=None,
             )
+            logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
             sched_conn = await self.connection.forward_local_port(
                 "127.0.0.1",
                 self.sched_port,
@@ -69,10 +75,12 @@ class ConnectionLoop(Process):
                 self.sched_port,
             )
 
+            logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
             dash_port = await self.connection.forward_local_port(
                 "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
             )
 
+            logger.debug(f"[ConnectionLoop][connect][tornado][{self.tornado_port}]")
             tornado_port = await self.connection.forward_local_port(
                 "127.0.0.1",
                 self.tornado_port,
@@ -81,15 +89,20 @@ class ConnectionLoop(Process):
             )
 
             await sched_conn.wait_closed()
+            logger.debug(f"[ConnectionLoop][closed][scheduler][{self.tornado_port}]")
             await dash_port.wait_closed()
+            logger.debug(f"[ConnectionLoop][closed][dashboard][{self.tornado_port}]")
             await tornado_port.wait_closed()
+            logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
 
         # async def _main_loop():
         #    while True:
         #        await asyncio.sleep(60.0)
 
+        logger.debug("[ConnectionLoop][create task]")
         self.cur_loop.create_task(forward())
         # self.cur_loop.create_task(_main_loop())
+        logger.debug("[ConnectionLoop][run forever]")
         self.cur_loop.run_forever()
 
 
