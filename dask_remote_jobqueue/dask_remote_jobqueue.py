@@ -17,6 +17,7 @@ from typing import Optional, Union
 
 import asyncssh
 import httpx
+import requests
 from distributed.deploy.spec import NoOpAwaitable, SpecCluster
 from distributed.deploy.ssh import Scheduler as SSHSched
 from distributed.security import Security
@@ -246,19 +247,10 @@ class RemoteHTCondor(object):
             await f
 
     @property
-    def scheduler_info(self):
-        new_info: dict = {}
-
+    def scheduler_info(self) -> dict:
         if not self.scheduler_address:
-            return new_info
+            return {}
 
-        if self.asynchronous:
-            return self._get_scheduler_info()
-        else:
-            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-            return cur_loop.run_until_complete(self._get_scheduler_info())
-
-    async def _get_scheduler_info(self) -> dict:
         info: dict = {
             "type": "Scheduler",
             "id": None,
@@ -271,23 +263,21 @@ class RemoteHTCondor(object):
         target_url = f"http://127.0.0.1:{self.tornado_port}/schedulerID"
         logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(target_url)
-            logger.debug(
-                f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
-            )
-            info["id"] = resp.text
+        resp = requests.get(target_url)
+        logger.debug(
+            f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
+        )
+        info["id"] = resp.text
 
         # Update the worker specs
         target_url = f"http://127.0.0.1:{self.tornado_port}/workerSpec"
         logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(target_url)
-            logger.debug(
-                f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
-            )
-            info["workers"] = json.loads(resp.text)
+        resp = requests.get(target_url)
+        logger.debug(
+            f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
+        )
+        info["workers"] = json.loads(resp.text)
 
         return info
 
