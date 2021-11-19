@@ -376,7 +376,6 @@ class ScaleJobHandler(tornado.web.RequestHandler):
     def get(self):
         num_jobs = int(self.get_argument("num"))
         cluster.scale(jobs=num_jobs)
-        cluster.scale_down
         self.write(f"scaled jobs to: {num_jobs}")
 
     def prepare(self):
