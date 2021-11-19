@@ -254,7 +254,7 @@ class RemoteHTCondor(object):
 
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
         if cur_loop.is_running():
-            task = cur_loop.create_task(self._get_scheduler_info())
+            task = asyncio.ensure_future(self._get_scheduler_info())
             while not task.done():
                 asyncio.sleep(1)
             new_info = task.result()
