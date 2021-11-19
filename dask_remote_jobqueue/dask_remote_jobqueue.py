@@ -246,16 +246,17 @@ class RemoteHTCondor(object):
             await f
 
     @property
-    def scheduler_info(self) -> dict:
+    def scheduler_info(self):
         new_info: dict = {}
 
         if not self.scheduler_address:
             return new_info
 
-        cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
-        new_info = cur_loop.run_until_complete(self._get_scheduler_info())
-
-        return new_info
+        if self.asynchronous:
+            return self._get_scheduler_info()
+        else:
+            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+            return cur_loop.run_until_complete(self._get_scheduler_info())
 
     async def _get_scheduler_info(self) -> dict:
         info: dict = {
