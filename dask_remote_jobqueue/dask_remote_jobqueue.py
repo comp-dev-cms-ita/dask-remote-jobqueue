@@ -236,7 +236,7 @@ class RemoteHTCondor(object):
     async def __aenter__(self):
         """Enable entering in the async context."""
         await self
-        assert self.status == 1
+        assert self.status == 2
         return self
 
     async def __aexit__(self, typ, value, traceback):
@@ -312,6 +312,7 @@ class RemoteHTCondor(object):
         scheduler job will be like a long running service.
         """
         if self.status == 0:
+            self.status = 1
             # Prepare HTCondor Job
             with tempfile.TemporaryDirectory() as tmpdirname:
 
@@ -455,7 +456,7 @@ class RemoteHTCondor(object):
             logger.debug(f"dashboard_link: {self.dashboard_link}")
             logger.debug(f"tornado_address: http://localhost:{self.tornado_port}")
 
-            self.status = 1
+            self.status = 2
 
     def close(self):
         if self.asynchronous:
