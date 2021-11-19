@@ -392,6 +392,11 @@ class ScaleWorkerHandler(tornado.web.RequestHandler):
         logger.debug(self.request.arguments)
 
 
+class WorkerSpecPlainHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(json.dumps(cluster.worker_spec))
+
+
 class WorkerSpecHandler(tornado.web.RequestHandler):
     def get(self):
         """Return a descriptive dictionary of worker specs.
@@ -469,6 +474,7 @@ def make_app():
             (r"/jobs", ScaleJobHandler),
             (r"/workers", ScaleWorkerHandler),
             (r"/workerSpec", WorkerSpecHandler),
+            (r"/workerSpecPlain", WorkerSpecPlainHandler),
             (r"/close", CloseHandler),
             (r"/logs", LogsHandler),
         ],
