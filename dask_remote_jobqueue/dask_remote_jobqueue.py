@@ -216,11 +216,6 @@ class RemoteHTCondor(object):
         self.scheduler_address: str = ""
         self.dashboard_link: str = ""
 
-    def __del__(self):
-        self.connection_process.stop()
-        if self.connection_process.is_alive():
-            self.connection_process.terminate()
-
     @property
     def logs_port(self) -> int:
         return self.tornado_port
@@ -455,6 +450,12 @@ class RemoteHTCondor(object):
         else:
             cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._close())
+            self._close_connection()
+
+    def _close_connection(self):
+        self.connection_process.stop()
+        if self.connection_process.is_alive():
+            self.connection_process.kill()
 
     @logger.catch
     async def _close(self):
@@ -480,6 +481,8 @@ class RemoteHTCondor(object):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
         await asyncio.sleep(2.0)
+
+        self._close_connection()
 
     def scale(self, n: int):
         if self.asynchronous:
