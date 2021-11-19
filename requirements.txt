@@ -4,4 +4,3 @@ dask_jobqueue
 httpx
 jinja2
 loguru
-nest_asyncio

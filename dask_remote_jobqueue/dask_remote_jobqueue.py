@@ -17,7 +17,6 @@ from typing import Optional, Union
 
 import asyncssh
 import httpx
-import nest_asyncio
 from distributed.deploy.spec import NoOpAwaitable, SpecCluster
 from distributed.deploy.ssh import Scheduler as SSHSched
 from distributed.security import Security
@@ -253,15 +252,8 @@ class RemoteHTCondor(object):
         if not self.scheduler_address:
             return new_info
 
-        cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-        if cur_loop.is_running():
-            nest_asyncio.apply(cur_loop)
-            task = asyncio.ensure_future(self._get_scheduler_info())
-            while not task.done():
-                asyncio.sleep(1)
-            new_info = task.result()
-        else:
-            new_info = cur_loop.run_until_complete(self._get_scheduler_info())
+        cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
+        new_info = cur_loop.run_until_complete(self._get_scheduler_info())
 
         return new_info
 
