@@ -175,6 +175,11 @@ class MainHandler(tornado.web.RequestHandler):
         )
 
 
+class JobScriptHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(cluster.job_script())
+
+
 class CloseHandler(tornado.web.RequestHandler):
     def get(self):
         cluster.close()
@@ -460,6 +465,7 @@ def make_app():
     return tornado.web.Application(
         [
             (r"/", MainHandler),
+            (r"/jobScript", JobScriptHandler),
             (r"/jobs", ScaleJobHandler),
             (r"/workers", ScaleWorkerHandler),
             (r"/workerSpec", WorkerSpecHandler),
