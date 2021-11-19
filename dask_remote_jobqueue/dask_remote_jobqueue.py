@@ -216,6 +216,11 @@ class RemoteHTCondor(object):
         self.scheduler_address: str = ""
         self.dashboard_link: str = ""
 
+    def __del__(self):
+        self.connection_process.stop()
+        if self.connection_process.is_alive():
+            self.connection_process.terminate()
+
     @property
     def logs_port(self) -> int:
         return self.tornado_port
@@ -450,9 +455,6 @@ class RemoteHTCondor(object):
         else:
             cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._close())
-
-            self.connection_process.stop()
-            self.connection_process.terminate()
 
     @logger.catch
     async def _close(self):
