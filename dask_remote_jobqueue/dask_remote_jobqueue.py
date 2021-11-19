@@ -187,15 +187,30 @@ class RemoteHTCondor(object):
         # Dask labextension variables
         #
         # scheduler_info expected struct: {
-        #     "workers": {
-        #         "0": {
-        #             "nthreads": int,
-        #             "memory_limit": int,
+        #     'type': str -> 'Scheduler',
+        #     'id': str -> 'Scheduler-e196ea92-25e3-4dab-84b0-32718a03fefc',
+        #     'address': str -> 'tcp://172.17.0.2:36959',
+        #     'services': dict ->{
+        #          'dashboard': int -> 8787
+        #     },
+        #     'started': float -> 1637317001.9844875,
+        #     'workers': {
+        #         '0': {
+        #             'nthreads': int -> 1,
+        #             'memory_limit': int -> 1000000000 (1G),
+        #             'id': str ->'HTCondorCluster-1',
+        #             'host': str -> '172.17.0.2',
+        #             'resources': dict -> {},
+        #             'local_directory': str -> '/home/submituser/dask-worker-space/worker-xax404el',
+        #             'name': str -> 'HTCondorCluster-1',
+        #             'services': dict -> {
+        #                 'dashboard': int -> 40487
+        #              },
+        #             'nanny': str -> 'tcp://172.17.0.2:38661'
         #         }
         #        ...
         #     }
         # }
-        self.scheduler_info: dict = {"workers": {}}
         self.scheduler_address: str = ""
         self.dashboard_link: str = ""
 
@@ -229,6 +244,50 @@ class RemoteHTCondor(object):
         f = self.close()
         if isawaitable(f):
             await f
+
+    @property
+    def scheduler_info(self) -> dict:
+        new_info: dict = {}
+        if self.asynchronous:
+            new_info = self._get_scheduler_info()
+        else:
+            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+            new_info = cur_loop.run_until_complete(self._get_scheduler_info())
+
+        return new_info
+
+    async def _get_scheduler_info(self) -> dict:
+        info: dict = {
+            "type": "Scheduler",
+            "id": None,
+            "address": f"tcp://127.0.0.1:{self.sched_port}",
+            "services": {"dashboard": self.dash_port},
+            "workers": {},
+        }
+
+        # Get scheduler ID
+        target_url = f"http://127.0.0.1:{self.tornado_port}/schedulerID"
+        logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(target_url)
+            logger.debug(
+                f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
+            )
+            info["id"] = resp.text
+
+        # Update the worker specs
+        target_url = f"http://127.0.0.1:{self.tornado_port}/workerSpec"
+        logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(target_url)
+            logger.debug(
+                f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
+            )
+            info["workers"] = json.loads(resp.text)
+
+        return info
 
     def start(self):
         if self.asynchronous:
@@ -442,15 +501,6 @@ class RemoteHTCondor(object):
         async with httpx.AsyncClient() as client:
             resp = await client.get(target_url)
             logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
-
-        # Update the worker specs
-        target_url = f"http://127.0.0.1:{self.tornado_port}/workerSpec"
-        logger.debug(f"[Scheduler][scale][url: {target_url}]")
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(target_url)
-            logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
-            self.scheduler_info["workers"] = json.loads(resp.text)
 
     def adapt(self, minimum: int, maximum: int):
         if self.asynchronous:
