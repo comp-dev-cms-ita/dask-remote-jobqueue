@@ -52,10 +52,14 @@ class ConnectionLoop(Process):
         self.sched_port: int = sched_port
         self.dash_port: int = dash_port
         self.tornado_port: int = tornado_port
+        self._running: bool = True
 
     def stop(self):
+        self._running = False
         logger.debug("[ConnectionLoop][stop forever loop]")
         self.cur_loop.stop()
+        logger.debug("[ConnectionLoop][close forever loop]")
+        self.cur_loop.close()
 
     def run(self):
         async def forward():
@@ -98,9 +102,11 @@ class ConnectionLoop(Process):
             logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
 
         async def _main_loop():
-            while True:
-                logger.debug("[ConnectionLoop][running]")
+            while self._running:
+                logger.debug(f"[ConnectionLoop][running: {self._running}]")
                 await asyncio.sleep(14.0)
+            logger.debug("[ConnectionLoop][close the connection]")
+            self.connection.close()
 
         logger.debug("[ConnectionLoop][create task]")
         self.cur_loop.create_task(forward())
