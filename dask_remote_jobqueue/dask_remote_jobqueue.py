@@ -13,15 +13,18 @@ from multiprocessing import Process
 from random import randrange
 from re import I
 from subprocess import STDOUT, check_output
-from typing import Union, Optional
+from typing import Optional, Union
 
 import asyncssh
 import httpx
+import nest_asyncio
 from distributed.deploy.spec import NoOpAwaitable, SpecCluster
 from distributed.deploy.ssh import Scheduler as SSHSched
 from distributed.security import Security
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
+
+nest_asyncio.apply()
 
 
 class ConnectionLoop(Process):
