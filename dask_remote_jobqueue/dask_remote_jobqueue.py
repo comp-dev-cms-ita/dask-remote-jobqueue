@@ -212,6 +212,7 @@ class RemoteHTCondor(object):
         #        ...
         #     }
         # }
+        self._scheduler_info: dict = {"workers": {}}
         self.scheduler_address: str = ""
         self.dashboard_link: str = ""
 
@@ -249,9 +250,9 @@ class RemoteHTCondor(object):
     @property
     def scheduler_info(self) -> dict:
         if not self.scheduler_address:
-            return {}
+            return self._scheduler_info
 
-        info: dict = {
+        self._scheduler_info = {
             "type": "Scheduler",
             "id": None,
             "address": f"tcp://127.0.0.1:{self.sched_port}",
@@ -267,7 +268,7 @@ class RemoteHTCondor(object):
         logger.debug(
             f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
         )
-        info["id"] = resp.text
+        self._scheduler_info["id"] = resp.text
 
         # Update the worker specs
         target_url = f"http://127.0.0.1:{self.tornado_port}/workerSpec"
@@ -277,9 +278,9 @@ class RemoteHTCondor(object):
         logger.debug(
             f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
         )
-        info["workers"] = json.loads(resp.text)
+        self._scheduler_info["workers"] = json.loads(resp.text)
 
-        return info
+        return self._scheduler_info
 
     def start(self):
         if self.asynchronous:
