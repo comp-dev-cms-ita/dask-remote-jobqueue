@@ -383,6 +383,11 @@ class ScaleJobHandler(tornado.web.RequestHandler):
         logger.debug(self.request.arguments)
 
 
+class SchedulerIDHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(cluster.scheduler.id)
+
+
 class ScaleWorkerHandler(tornado.web.RequestHandler):
     def get(self):
         num_workers = int(self.get_argument("num"))
@@ -470,6 +475,7 @@ def make_app():
             (r"/jobs", ScaleJobHandler),
             (r"/workers", ScaleWorkerHandler),
             (r"/workerSpec", WorkerSpecHandler),
+            (r"/schedulerID", SchedulerIDHandler),
             (r"/close", CloseHandler),
             (r"/logs", LogsHandler),
         ],
