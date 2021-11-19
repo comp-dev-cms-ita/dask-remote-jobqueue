@@ -376,6 +376,7 @@ class ScaleJobHandler(tornado.web.RequestHandler):
     def get(self):
         num_jobs = int(self.get_argument("num"))
         cluster.scale(jobs=num_jobs)
+        cluster.scale_down
         self.write(f"scaled jobs to: {num_jobs}")
 
     def prepare(self):
@@ -390,11 +391,6 @@ class ScaleWorkerHandler(tornado.web.RequestHandler):
 
     def prepare(self):
         logger.debug(self.request.arguments)
-
-
-class WorkerSpecPlainHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.write(json.dumps(cluster.worker_spec))
 
 
 class WorkerSpecHandler(tornado.web.RequestHandler):
@@ -441,8 +437,8 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
                 }
             }"""
         workers = {}
-        for num, (_, spec) in enumerate(cluster.worker_spec.items()):
-            logger.debug(f"[workerSpec][{num}][{spec}]")
+        for num, (worker_name, spec) in enumerate(cluster.worker_spec.items()):
+            logger.debug(f"[workerSpec][{num}][{worker_name}][{spec}]")
             memory_limit = spec["options"].get("memory", "").lower()
             if not memory_limit:
                 memory_limit = spec["options"].get("memory_limit", "")
@@ -458,7 +454,7 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
             n_cores = spec["options"].get("cores", -1)
             if n_cores == -1:
                 n_cores = spec["options"].get("nthreads", -1)
-            workers[str(num)] = {
+            workers[worker_name] = {
                 "nthreads": n_cores,
                 "memory_limit": memory_limit,
             }
@@ -474,7 +470,6 @@ def make_app():
             (r"/jobs", ScaleJobHandler),
             (r"/workers", ScaleWorkerHandler),
             (r"/workerSpec", WorkerSpecHandler),
-            (r"/workerSpecPlain", WorkerSpecPlainHandler),
             (r"/close", CloseHandler),
             (r"/logs", LogsHandler),
         ],
