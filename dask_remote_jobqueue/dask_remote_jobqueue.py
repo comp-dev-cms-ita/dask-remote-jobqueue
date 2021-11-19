@@ -120,7 +120,10 @@ class RemoteHTCondor(object):
         sitename: str = "",
     ):
 
-        logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
+        try:
+            logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
+        except PermissionError:
+            logger.add("/tmp/log/RemoteHTCondor.log", rotation="32 MB")
 
         logger.debug("[RemoteHTCondor][init]")
 
