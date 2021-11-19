@@ -251,7 +251,7 @@ class RemoteHTCondor(object):
 
         if not self.scheduler_address:
             return new_info
-        
+
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
         new_info = cur_loop.run_until_complete(self._get_scheduler_info())
 
