@@ -24,8 +24,6 @@ from distributed.security import Security
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
-nest_asyncio.apply()
-
 
 class ConnectionLoop(Process):
 
@@ -257,6 +255,7 @@ class RemoteHTCondor(object):
 
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
         if cur_loop.is_running():
+            nest_asyncio.apply(cur_loop)
             task = asyncio.ensure_future(self._get_scheduler_info())
             while not task.done():
                 asyncio.sleep(1)
