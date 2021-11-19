@@ -13,6 +13,7 @@ from multiprocessing import Process
 from random import randrange
 from re import I
 from subprocess import STDOUT, check_output
+from time import sleep
 from typing import Optional, Union
 
 import asyncssh
@@ -106,6 +107,9 @@ class ConnectionLoop(Process):
         self.cur_loop.create_task(_main_loop())
         logger.debug("[ConnectionLoop][run forever]")
         self.cur_loop.run_forever()
+        logger.debug("[ConnectionLoop][stopped]")
+        sleep(14)
+        logger.debug("[ConnectionLoop][exit]")
 
 
 class RemoteHTCondor(object):
@@ -450,12 +454,6 @@ class RemoteHTCondor(object):
         else:
             cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._close())
-            self._close_connection()
-
-    def _close_connection(self):
-        self.connection_process.stop()
-        if self.connection_process.is_alive():
-            self.connection_process.kill()
 
     @logger.catch
     async def _close(self):
@@ -482,7 +480,7 @@ class RemoteHTCondor(object):
 
         await asyncio.sleep(2.0)
 
-        self._close_connection()
+        self.connection_process.stop()
 
     def scale(self, n: int):
         if self.asynchronous:
