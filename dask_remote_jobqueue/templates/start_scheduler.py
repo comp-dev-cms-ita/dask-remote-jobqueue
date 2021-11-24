@@ -483,16 +483,18 @@ def make_app():
 
 
 async def main():
+    global cluster
+
     loop = asyncio.get_running_loop()
     loop.create_task(start_tornado())
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
     loop.create_task(tunnel_tornado())
-    running = True
-    while running:
-        global cluster
 
-        await asyncio.sleep(60)
+    running = True
+
+    while running:
+        await asyncio.sleep(6)
         logging.debug(
             f"Cluster: {cluster.status} - Scheduler: {cluster.scheduler.status}"
         )
