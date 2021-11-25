@@ -131,7 +131,9 @@ class ConnectionLoop(Process):
             logger.debug("[ConnectionLoop][DONE]")
 
         logger.debug("[ConnectionLoop][create task]")
-        self.tasks.append(self.cur_loop.create_task(forward_connection(self)))
+        self.tasks.append(
+            self.cur_loop.create_task(forward_connection(self, self.queue))
+        )
         logger.debug("[ConnectionLoop][run main loop until complete]")
         self.cur_loop.run_until_complete(_main_loop())
         logger.debug("[ConnectionLoop][exit]")
