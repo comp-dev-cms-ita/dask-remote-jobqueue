@@ -276,7 +276,7 @@ class RemoteHTCondor(object):
 
     @property
     def scheduler_info(self) -> dict:
-        if not self.scheduler_address:
+        if not self.scheduler_address or self.status == 0:
             return self._scheduler_info
 
         self._scheduler_info = {
