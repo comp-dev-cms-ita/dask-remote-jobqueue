@@ -409,7 +409,7 @@ class RemoteHTCondor(object):
                 logger.debug(f"[_start][{cmd}]")
 
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
-                logger.debug(f"[_start][{str(cmd_out)}]")
+                logger.debug(f"[_start][{cmd_out.decode('ascii')}]")
 
                 try:
                     classAd = json.loads(cmd_out)
