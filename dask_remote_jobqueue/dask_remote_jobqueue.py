@@ -255,9 +255,9 @@ class RemoteHTCondor(object):
         """
 
         async def closure():
-            logger.debug("await RemoteHTCondor")
-            # if self.status == 0:
-            #     await self._start()
+            logger.debug("[__await__][RemoteHTCondor]")
+            if self.status == 0:
+                await self._start()
             return self
 
         return closure().__await__()
@@ -270,9 +270,10 @@ class RemoteHTCondor(object):
 
     async def __aexit__(self, typ, value, traceback):
         """Enable exiting from the async context."""
-        f = self.close()
-        if isawaitable(f):
-            await f
+        if self.status == 2:
+            f = self.close()
+            if isawaitable(f):
+                await f
 
     @property
     def scheduler_info(self) -> dict:
