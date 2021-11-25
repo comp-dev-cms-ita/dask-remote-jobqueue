@@ -280,7 +280,7 @@ class RemoteHTCondor(object):
         logger.debug(
             f"[Scheduler][scheduler_info][scheduler_address: {self.scheduler_address}][status: {self.status}]"
         )
-        if not self.scheduler_address or self.status == 0:
+        if not self.scheduler_address or self.status in [0, 1]:
             return self._scheduler_info
 
         # Check controller
