@@ -405,7 +405,7 @@ class RemoteHTCondor(object):
 
             # While job is idle or hold
             while job_status in [1, 5]:
-                await asyncio.sleep(2.0)
+                await asyncio.sleep(6.0)
 
                 logger.debug("Check job status")
                 cmd = "condor_q {}.0 -json".format(self.cluster_id)
