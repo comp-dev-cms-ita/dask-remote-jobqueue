@@ -19,15 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 class MyHTCondorJob(HTCondorJob):
+    submit_command = "./job_submit.sh"
+    cancel_command = "./job_rm.sh"
+    executable = "/bin/bash"
+
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args,
             **kwargs,
             python="source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh; conda activate cms-dodas; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh; python3",
         )
-        self.submit_command = "./job_submit.sh"
-        self.cancel_command = "./job_rm.sh"
-        self.executable = "/bin/bash"
 
 
 ##
