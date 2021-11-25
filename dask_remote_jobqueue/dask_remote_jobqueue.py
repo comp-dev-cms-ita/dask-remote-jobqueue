@@ -279,6 +279,14 @@ class RemoteHTCondor(object):
         if not self.scheduler_address or self.status == 0:
             return self._scheduler_info
 
+        # Check controller
+        target_url = f"http://127.0.0.1:{self.tornado_port}/"
+        logger.debug(f"[Scheduler][controller][url: {target_url}]")
+
+        resp = requests.get(target_url)
+        if resp.status_code != 200:
+            return self._scheduler_info
+
         self._scheduler_info = {
             "type": "Scheduler",
             "id": None,
