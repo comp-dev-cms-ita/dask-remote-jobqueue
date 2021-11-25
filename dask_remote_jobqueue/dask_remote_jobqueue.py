@@ -26,7 +26,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
 
-async def forward_connection(self=None):
+async def forward_connection(self=None, queue: "Queue" = None):
     logger.debug(
         f"[ConnectionLoop][connect][{self.ssh_url}][{self.ssh_url_port}][{self.token}]"
     )
@@ -59,12 +59,17 @@ async def forward_connection(self=None):
         self.tornado_port,
     )
 
-    await sched_conn.wait_closed()
-    logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
-    await dash_port.wait_closed()
-    logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
-    await tornado_port.wait_closed()
-    logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
+    # await sched_conn.wait_closed()
+    # logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
+    # await dash_port.wait_closed()
+    # logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
+    # await tornado_port.wait_closed()
+    # logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
+
+    if queue:
+        queue.put("OK")
+
+    await self.connection.wait_closed()
 
 
 class ConnectionLoop(Process):
@@ -455,6 +460,11 @@ class RemoteHTCondor(object):
                     tornado_port=self.tornado_port,
                 )
                 self.connection_process.start()
+                while self.connection_q.empty():
+                    pass
+                started_tunnels = self.connection_q.get()
+                if started_tunnels != "OK":
+                    raise Exception("Cannot make any tunnel...")
 
             self.address = "localhost:{}".format(self.sched_port)
             self.dashboard_address = "http://localhost:{}".format(self.dash_port)
