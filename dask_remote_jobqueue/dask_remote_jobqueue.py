@@ -276,14 +276,20 @@ class RemoteHTCondor(object):
 
     @property
     def scheduler_info(self) -> dict:
+        logger.debug(
+            f"[Scheduler][scheduler_info][scheduler_address: {self.scheduler_address}][status: {self.status}]"
+        )
         if not self.scheduler_address or self.status == 0:
             return self._scheduler_info
 
         # Check controller
         target_url = f"http://127.0.0.1:{self.tornado_port}/"
-        logger.debug(f"[Scheduler][controller][url: {target_url}]")
+        logger.debug(f"[Scheduler][scheduler_info][controller][url: {target_url}]")
 
         resp = requests.get(target_url)
+        logger.debug(
+            f"[Scheduler][scheduler_info][controller][check: {resp.status_code}]"
+        )
         if resp.status_code != 200:
             return self._scheduler_info
 
