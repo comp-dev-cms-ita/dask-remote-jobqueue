@@ -99,8 +99,6 @@ class ConnectionLoop(Process):
 
     def stop(self):
         self._running = False
-        logger.debug("[ConnectionLoop][close the connection]")
-        self.connection.close()
         logger.debug("[ConnectionLoop][stop forever loop]")
         self.cur_loop.stop()
         logger.debug("[ConnectionLoop][cancel all tasks]")
@@ -450,9 +448,6 @@ class RemoteHTCondor(object):
                 )
                 self.connection_process.start()
 
-            logger.debug("Wait for connections...")
-            await asyncio.sleep(6.0)
-
             self.address = "localhost:{}".format(self.sched_port)
             self.dashboard_address = "http://localhost:{}".format(self.dash_port)
 
@@ -465,6 +460,24 @@ class RemoteHTCondor(object):
             logger.debug(f"scheduler_address: {self.scheduler_address}")
             logger.debug(f"dashboard_link: {self.dashboard_link}")
             logger.debug(f"tornado_address: http://localhost:{self.tornado_port}")
+
+            await asyncio.sleep(6.0)
+
+            logger.debug("Test connections...")
+            async with httpx.AsyncClient() as client:
+                target_url = f"http://localhost:{self.tornado_port}"
+                logger.debug(f"[check controller][{target_url}]")
+                resp = await client.get(target_url)
+                logger.debug(f"[check controller][resp({resp.status_code})]")
+                if resp.status_code != 200:
+                    raise Exception("Cannot connect to controller")
+
+                target_url = self.dashboard_link
+                logger.debug(f"[check dashboard][{target_url}]")
+                resp = await client.get(target_url)
+                logger.debug(f"[check dashboard][resp({resp.status_code})]")
+                if resp.status_code != 200:
+                    raise Exception("Cannot connect to dashboard")
 
             self.status = 2
 
@@ -502,7 +515,6 @@ class RemoteHTCondor(object):
 
         # Close scheduler connection
         if self.asynchronous:
-            self.connection.close()
             self.connection_task.cancel()
         else:
             self.connection_process.stop()
