@@ -256,8 +256,8 @@ class RemoteHTCondor(object):
 
         async def closure():
             logger.debug("await RemoteHTCondor")
-            if self.status == 0:
-                await self._start()
+            # if self.status == 0:
+            #     await self._start()
             return self
 
         return closure().__await__()
@@ -265,7 +265,7 @@ class RemoteHTCondor(object):
     async def __aenter__(self):
         """Enable entering in the async context."""
         await self
-        assert self.status == 2
+        # assert self.status == 2
         return self
 
     async def __aexit__(self, typ, value, traceback):
