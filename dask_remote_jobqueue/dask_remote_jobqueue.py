@@ -9,7 +9,7 @@ import json
 import os
 import tempfile
 from inspect import isawaitable
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from random import randrange
 from re import I
 from subprocess import STDOUT, check_output
@@ -73,6 +73,7 @@ class ConnectionLoop(Process):
 
     def __init__(
         self,
+        queue: "Queue",
         ssh_url: str = "",
         ssh_url_port: int = -1,
         username: str = "",
@@ -94,35 +95,40 @@ class ConnectionLoop(Process):
         self.sched_port: int = sched_port
         self.dash_port: int = dash_port
         self.tornado_port: int = tornado_port
-        self._running: bool = True
         self.tasks: list = []
+        self.queue: "Queue" = queue
 
     def stop(self):
-        self._running = False
-        logger.debug("[ConnectionLoop][stop forever loop]")
-        self.cur_loop.stop()
-        logger.debug("[ConnectionLoop][cancel all tasks]")
-        for task in self.tasks:
-            task.cancel()
-        logger.debug("[ConnectionLoop][close forever loop]")
-        while self.cur_loop.is_running():
-            logger.debug("[ConnectionLoop][close forever loop][waiting for full stop]")
-            sleep(1.0)
-        self.cur_loop.close()
+        self.loop = asyncio.get_running_loop()
+
+        async def _close_connection(connection):
+            logger.debug(f"[ConnectionLoop][close connection {connection}]")
+            connection.close()
+
+        self.loop.create_task(_close_connection(self.connection))
 
     def run(self):
         async def _main_loop():
-            while self._running:
-                logger.debug(f"[ConnectionLoop][running: {self._running}]")
-                await asyncio.sleep(14.0)
+            running: bool = True
+            while running:
+                await asyncio.sleep(6.0)
+                logger.debug(f"[ConnectionLoop][running: {running}]")
+                if not self.queue.empty():
+                    res = self.queue.get_nowait()
+                    logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
+                    if res and res == "STOP":
+                        self.stop()
+                        running = False
+                        logger.debug("[ConnectionLoop][Exiting in ... 6]")
+                        for i in reversed(range(6)):
+                            logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
+                            await asyncio.sleep(1)
+            logger.debug("[ConnectionLoop][DONE]")
 
         logger.debug("[ConnectionLoop][create task]")
         self.tasks.append(self.cur_loop.create_task(forward_connection(self)))
-        self.tasks.append(self.cur_loop.create_task(_main_loop()))
-        logger.debug("[ConnectionLoop][run forever]")
-        self.cur_loop.run_forever()
-        logger.debug("[ConnectionLoop][stopped]")
-        sleep(2)
+        logger.debug("[ConnectionLoop][run main loop until complete]")
+        self.cur_loop.run_until_complete(_main_loop())
         logger.debug("[ConnectionLoop][exit]")
 
 
@@ -149,7 +155,8 @@ class RemoteHTCondor(object):
         # Inner class status
         self.status: int = 0
         self.asynchronous: bool = asynchronous
-        self.connection_process: "ConnectionLoop" = ConnectionLoop()
+        self.connection_q: "Queue" = Queue()
+        self.connection_process: "ConnectionLoop" = ConnectionLoop(self.connection_q)
         self.connection = None
         self.connection_task = None
 
@@ -438,6 +445,7 @@ class RemoteHTCondor(object):
                 self.connection_task = cur_loop.create_task(forward_connection(self))
             else:
                 self.connection_process = ConnectionLoop(
+                    self.connection_q,
                     ssh_url=ssh_url,
                     ssh_url_port=self.ssh_url_port,
                     username=self.name,
@@ -517,8 +525,7 @@ class RemoteHTCondor(object):
         if self.asynchronous:
             self.connection_task.cancel()
         else:
-            self.connection_process.stop()
-            self.connection_process.terminate()
+            self.connection_q.put("STOP")
 
         await asyncio.sleep(1.0)
 
