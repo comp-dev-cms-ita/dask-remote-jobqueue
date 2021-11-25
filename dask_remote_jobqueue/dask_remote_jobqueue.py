@@ -536,6 +536,8 @@ class RemoteHTCondor(object):
         await asyncio.sleep(1.0)
 
         self.status = 0
+        # To avoid wrong call on scheduler_info when make_cluster after deletion
+        self.scheduler_address = ""
 
     def scale(self, n: int):
         if self.asynchronous:
