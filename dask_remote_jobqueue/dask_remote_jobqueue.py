@@ -95,32 +95,32 @@ class ConnectionLoop(Process):
         self.dash_port: int = dash_port
         self.tornado_port: int = tornado_port
         self._running: bool = True
+        self.tasks: list = []
 
     def stop(self):
         self._running = False
+        logger.debug("[ConnectionLoop][close the connection]")
+        self.connection.close()
         logger.debug("[ConnectionLoop][stop forever loop]")
         self.cur_loop.stop()
+        logger.debug("[ConnectionLoop][cancel all tasks]")
+        for task in self.tasks:
+            task.cancel()
         logger.debug("[ConnectionLoop][close forever loop]")
-        while True:
-            try:
-                self.cur_loop.close()
-            except RuntimeError as err:
-                logger.debug(f"[ConnectionLoop][close forever loop][error: {err}]")
-                pass
-            else:
-                break
+        while self.cur_loop.is_running():
+            logger.debug("[ConnectionLoop][close forever loop][waiting for full stop]")
+            sleep(1.0)
+        self.cur_loop.close()
 
     def run(self):
         async def _main_loop():
             while self._running:
                 logger.debug(f"[ConnectionLoop][running: {self._running}]")
                 await asyncio.sleep(14.0)
-            logger.debug("[ConnectionLoop][close the connection]")
-            self.connection.close()
 
         logger.debug("[ConnectionLoop][create task]")
-        self.cur_loop.create_task(forward_connection(self))
-        self.cur_loop.create_task(_main_loop())
+        self.tasks.append(self.cur_loop.create_task(forward_connection(self)))
+        self.tasks.append(self.cur_loop.create_task(_main_loop()))
         logger.debug("[ConnectionLoop][run forever]")
         self.cur_loop.run_forever()
         logger.debug("[ConnectionLoop][stopped]")
@@ -153,6 +153,7 @@ class RemoteHTCondor(object):
         self.asynchronous: bool = asynchronous
         self.connection_process: "ConnectionLoop" = ConnectionLoop()
         self.connection = None
+        self.connection_task = None
 
         # Address of the dask scheduler and its dashboard
         self.address: str = ""
@@ -181,8 +182,6 @@ class RemoteHTCondor(object):
             os.environ.get("JUPYTERHUB_USER", user) + f"-{self.dash_port}.dash.dask-ssh"
         )
 
-        # Tunnel connection
-        self.connection = None
         self.sshNamespace = os.environ.get("SSH_NAMESPACE", ssh_namespace)
 
         # HTCondor vars
@@ -438,7 +437,7 @@ class RemoteHTCondor(object):
 
             if self.asynchronous:
                 cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                cur_loop.create_task(forward_connection(self))
+                self.connection_task = cur_loop.create_task(forward_connection(self))
             else:
                 self.connection_process = ConnectionLoop(
                     ssh_url=ssh_url,
@@ -504,6 +503,7 @@ class RemoteHTCondor(object):
         # Close scheduler connection
         if self.asynchronous:
             self.connection.close()
+            self.connection_task.cancel()
         else:
             self.connection_process.stop()
             self.connection_process.terminate()
