@@ -382,7 +382,7 @@ class RemoteHTCondor(object):
                     cmd_out = check_output(
                         cmd, stderr=STDOUT, shell=True, env=os.environ
                     )
-                    logger.debug(f"[_start][{str(cmd_out)}]")
+                    logger.debug(f"[_start][{cmd_out.decode('ascii')}]")
                 except Exception as ex:
                     raise ex
 
