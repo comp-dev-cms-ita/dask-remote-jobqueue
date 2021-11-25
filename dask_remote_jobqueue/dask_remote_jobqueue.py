@@ -325,6 +325,9 @@ class RemoteHTCondor(object):
         return self._scheduler_info
 
     def start(self):
+        if self.status in [1, 2]:
+            return
+
         if self.asynchronous:
             return self._start()
         else:
