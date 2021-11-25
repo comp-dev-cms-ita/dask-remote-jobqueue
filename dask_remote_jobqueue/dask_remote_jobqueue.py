@@ -459,10 +459,14 @@ class RemoteHTCondor(object):
                     dash_port=self.dash_port,
                     tornado_port=self.tornado_port,
                 )
+                logger.debug("Start connection process")
                 self.connection_process.start()
+                logger.debug("Wait for queue...")
                 while self.connection_q.empty():
                     pass
+                logger.debug("Check connection_q response")
                 started_tunnels = self.connection_q.get()
+                logger.debug(f"response: {started_tunnels}")
                 if started_tunnels != "OK":
                     raise Exception("Cannot make any tunnel...")
 
