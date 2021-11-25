@@ -357,6 +357,7 @@ class RemoteHTCondor(object):
                     "scheduler.sub",
                     "start_scheduler.py",
                     "job_submit.sh",
+                    "job_rm.sh",
                 ]
 
                 selected_sitename = "# requirements: Nil"
