@@ -547,6 +547,8 @@ class RemoteHTCondor(object):
 
         await asyncio.sleep(1.0)
 
+        self.status = 0
+
     def scale(self, n: int):
         if self.asynchronous:
             return self._scale(n)
