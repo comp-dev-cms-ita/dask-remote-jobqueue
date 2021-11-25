@@ -101,7 +101,14 @@ class ConnectionLoop(Process):
         logger.debug("[ConnectionLoop][stop forever loop]")
         self.cur_loop.stop()
         logger.debug("[ConnectionLoop][close forever loop]")
-        self.cur_loop.close()
+        while True:
+            try:
+                self.cur_loop.close()
+            except RuntimeError as err:
+                logger.debug(f"[ConnectionLoop][close forever loop][error: {err}]")
+                pass
+            else:
+                break
 
     def run(self):
         async def _main_loop():
