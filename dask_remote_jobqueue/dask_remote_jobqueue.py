@@ -26,52 +26,6 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
 
-async def forward_connection(self=None, queue: "Queue" = None):
-    logger.debug(
-        f"[ConnectionLoop][connect][{self.ssh_url}][{self.ssh_url_port}][{self.token}]"
-    )
-    # Ref: https://asyncssh.readthedocs.io/
-    self.connection = await asyncssh.connect(
-        host=self.ssh_url,
-        port=self.ssh_url_port,
-        username=self.username,
-        password=self.token,
-        known_hosts=None,
-    )
-    logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
-    sched_conn = await self.connection.forward_local_port(
-        "127.0.0.1",
-        self.sched_port,
-        "127.0.0.1",
-        self.sched_port,
-    )
-
-    logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
-    dash_port = await self.connection.forward_local_port(
-        "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
-    )
-
-    logger.debug(f"[ConnectionLoop][connect][tornado][{self.tornado_port}]")
-    tornado_port = await self.connection.forward_local_port(
-        "127.0.0.1",
-        self.tornado_port,
-        "127.0.0.1",
-        self.tornado_port,
-    )
-
-    # await sched_conn.wait_closed()
-    # logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
-    # await dash_port.wait_closed()
-    # logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
-    # await tornado_port.wait_closed()
-    # logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
-
-    if queue:
-        queue.put("OK")
-
-    await self.connection.wait_closed()
-
-
 class ConnectionLoop(Process):
 
     """Class to control the tunneling processes."""
@@ -113,6 +67,51 @@ class ConnectionLoop(Process):
         self.loop.create_task(_close_connection(self.connection))
 
     def run(self):
+        async def forward_connection():
+            logger.debug(
+                f"[ConnectionLoop][connect][{self.ssh_url}][{self.ssh_url_port}][{self.token}]"
+            )
+            # Ref: https://asyncssh.readthedocs.io/
+            self.connection = await asyncssh.connect(
+                host=self.ssh_url,
+                port=self.ssh_url_port,
+                username=self.username,
+                password=self.token,
+                known_hosts=None,
+            )
+            logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
+            sched_conn = await self.connection.forward_local_port(
+                "127.0.0.1",
+                self.sched_port,
+                "127.0.0.1",
+                self.sched_port,
+            )
+
+            logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
+            dash_port = await self.connection.forward_local_port(
+                "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
+            )
+
+            logger.debug(f"[ConnectionLoop][connect][tornado][{self.tornado_port}]")
+            tornado_port = await self.connection.forward_local_port(
+                "127.0.0.1",
+                self.tornado_port,
+                "127.0.0.1",
+                self.tornado_port,
+            )
+
+            if self.queue:
+                self.queue.put("OK")
+
+            await sched_conn.wait_closed()
+            logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
+            await dash_port.wait_closed()
+            logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
+            await tornado_port.wait_closed()
+            logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
+
+            await self.connection.wait_closed()
+
         async def _main_loop():
             running: bool = True
             while running:
@@ -131,9 +130,7 @@ class ConnectionLoop(Process):
             logger.debug("[ConnectionLoop][DONE]")
 
         logger.debug("[ConnectionLoop][create task]")
-        self.tasks.append(
-            self.cur_loop.create_task(forward_connection(self, self.queue))
-        )
+        self.tasks.append(self.cur_loop.create_task(forward_connection()))
         logger.debug("[ConnectionLoop][run main loop until complete]")
         self.cur_loop.run_until_complete(_main_loop())
         logger.debug("[ConnectionLoop][exit]")
@@ -164,8 +161,6 @@ class RemoteHTCondor(object):
         self.asynchronous: bool = asynchronous
         self.connection_q: "Queue" = Queue()
         self.connection_process: "ConnectionLoop" = ConnectionLoop(self.connection_q)
-        self.connection = None
-        self.connection_task = None
 
         # Address of the dask scheduler and its dashboard
         self.address: str = ""
@@ -447,30 +442,26 @@ class RemoteHTCondor(object):
             logger.debug(f"[_start][username: {self.name}]")
             logger.debug(f"[_start][password: {self.token}]")
 
-            if self.asynchronous:
-                cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                self.connection_task = cur_loop.create_task(forward_connection(self))
-            else:
-                self.connection_process = ConnectionLoop(
-                    self.connection_q,
-                    ssh_url=ssh_url,
-                    ssh_url_port=self.ssh_url_port,
-                    username=self.name,
-                    token=self.token,
-                    sched_port=self.sched_port,
-                    dash_port=self.dash_port,
-                    tornado_port=self.tornado_port,
-                )
-                logger.debug("[_start][Start connection process]")
-                self.connection_process.start()
-                logger.debug("[_start][Wait for queue...]")
-                while self.connection_q.empty():
-                    pass
-                logger.debug("[_start][Check connection_q response]")
-                started_tunnels = self.connection_q.get()
-                logger.debug(f"[_start][response: {started_tunnels}]")
-                if started_tunnels != "OK":
-                    raise Exception("Cannot make any tunnel...")
+            self.connection_process = ConnectionLoop(
+                self.connection_q,
+                ssh_url=ssh_url,
+                ssh_url_port=self.ssh_url_port,
+                username=self.name,
+                token=self.token,
+                sched_port=self.sched_port,
+                dash_port=self.dash_port,
+                tornado_port=self.tornado_port,
+            )
+            logger.debug("[_start][Start connection process]")
+            self.connection_process.start()
+            logger.debug("[_start][Wait for queue...]")
+            while self.connection_q.empty():
+                pass
+            logger.debug("[_start][Check connection_q response]")
+            started_tunnels = self.connection_q.get()
+            logger.debug(f"[_start][response: {started_tunnels}]")
+            if started_tunnels != "OK":
+                raise Exception("Cannot make any tunnel...")
 
             self.address = "localhost:{}".format(self.sched_port)
             self.dashboard_address = "http://localhost:{}".format(self.dash_port)
@@ -540,10 +531,7 @@ class RemoteHTCondor(object):
         await asyncio.sleep(1.0)
 
         # Close scheduler connection
-        if self.asynchronous:
-            self.connection_task.cancel()
-        else:
-            self.connection_q.put("STOP")
+        self.connection_q.put("STOP")
 
         await asyncio.sleep(1.0)
 
