@@ -265,7 +265,7 @@ class RemoteHTCondor(object):
     async def __aenter__(self):
         """Enable entering in the async context."""
         await self
-        # assert self.status == 2
+        assert self.status == 2
         return self
 
     async def __aexit__(self, typ, value, traceback):
@@ -325,9 +325,6 @@ class RemoteHTCondor(object):
         return self._scheduler_info
 
     def start(self):
-        if self.status in [1, 2]:
-            return
-
         if self.asynchronous:
             return self._start()
         else:
