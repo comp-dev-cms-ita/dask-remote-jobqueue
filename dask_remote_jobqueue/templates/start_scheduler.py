@@ -19,14 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 class MyHTCondorJob(HTCondorJob):
+    submit_command = "./job_submit.sh"
+    cancel_command = "./job_rm.sh"
+    executable = "/bin/bash"
+
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args,
             **kwargs,
             python="source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh; conda activate cms-dodas; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh; python3",
         )
-        self.submit_command = "./job_submit.sh"
-        self.executable = "/bin/bash"
 
 
 ##
@@ -111,10 +113,6 @@ cluster = HTCondorCluster(
     job_extra=job_extra_vars,
     silence_logs="debug",
 )
-
-# Set the cluster to adaptiv mode, with min and max
-# TODO: pass minumum and maximum by ENV VAR
-cluster.adapt(minimum_jobs=0, maximum_jobs=16)
 
 
 async def tunnel_scheduler():
@@ -335,41 +333,52 @@ class LogsHandler(tornado.web.RequestHandler):
         self.write("</body>")
         self.write(
             """<script>
-var coll = document.getElementsByClassName("collapsible");
-var i;
+    var coll = document.getElementsByClassName("collapsible");
+    var i;
 
-for (i = 0; i < coll.length; i++) {
-  coll[i].addEventListener("click", function() {
-    this.classList.toggle("active");
-    var content = this.nextElementSibling;
-    if (content.style.display === "block") {
-      content.style.display = "none";
-    } else {
-      content.style.display = "block";
+    for (i = 0; i < coll.length; i++) {
+    coll[i].addEventListener("click", function() {
+        this.classList.toggle("active");
+        var content = this.nextElementSibling;
+        if (content.style.display === "block") {
+        content.style.display = "none";
+        } else {
+        content.style.display = "block";
+        }
+    });
     }
-  });
-}
 
-window.onscroll = function() {myFunction()};
+    window.onscroll = function() {myFunction()};
 
-var header = document.getElementById("myHeader");
-var sticky = header.offsetTop;
+    var header = document.getElementById("myHeader");
+    var sticky = header.offsetTop;
 
-function myFunction() {
-  if (window.pageYOffset > sticky) {
-    header.classList.add("sticky");
-  } else {
-    header.classList.remove("sticky");
-  }
-}
+    function myFunction() {
+    if (window.pageYOffset > sticky) {
+        header.classList.add("sticky");
+    } else {
+        header.classList.remove("sticky");
+    }
+    }
 
-var origin_location = window.location.href;
-function reload() {
-    window.location.href = origin_location;
-}
-</script>"""
+    var origin_location = window.location.href;
+    function reload() {
+        window.location.href = origin_location;
+    }
+    </script>"""
         )
         self.write("</html>")
+
+
+class AdaptHandler(tornado.web.RequestHandler):
+    def get(self):
+        minimum = int(self.get_argument("minmum"))
+        maximum = int(self.get_argument("maximum"))
+        cluster.adapt(minimum_jobs=minimum, maximum_jobs=maximum)
+        self.write(f"adapt jobs to min {minimum} and max {maximum}")
+
+    def prepare(self):
+        logger.debug(self.request.arguments)
 
 
 class ScaleJobHandler(tornado.web.RequestHandler):
@@ -380,6 +389,11 @@ class ScaleJobHandler(tornado.web.RequestHandler):
 
     def prepare(self):
         logger.debug(self.request.arguments)
+
+
+class SchedulerIDHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(cluster.scheduler.id)
 
 
 class ScaleWorkerHandler(tornado.web.RequestHandler):
@@ -436,8 +450,8 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
                 }
             }"""
         workers = {}
-        for num, (_, spec) in enumerate(cluster.worker_spec.items()):
-            logger.debug(f"[workerSpec][{num}][{spec}]")
+        for num, (worker_name, spec) in enumerate(cluster.worker_spec.items()):
+            logger.debug(f"[workerSpec][{num}][{worker_name}][{spec}]")
             memory_limit = spec["options"].get("memory", "").lower()
             if not memory_limit:
                 memory_limit = spec["options"].get("memory_limit", "")
@@ -453,7 +467,7 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
             n_cores = spec["options"].get("cores", -1)
             if n_cores == -1:
                 n_cores = spec["options"].get("nthreads", -1)
-            workers[str(num)] = {
+            workers[worker_name] = {
                 "nthreads": n_cores,
                 "memory_limit": memory_limit,
             }
@@ -466,9 +480,11 @@ def make_app():
         [
             (r"/", MainHandler),
             (r"/jobScript", JobScriptHandler),
+            (r"/adapt", AdaptHandler),
             (r"/jobs", ScaleJobHandler),
             (r"/workers", ScaleWorkerHandler),
             (r"/workerSpec", WorkerSpecHandler),
+            (r"/schedulerID", SchedulerIDHandler),
             (r"/close", CloseHandler),
             (r"/logs", LogsHandler),
         ],
@@ -477,16 +493,18 @@ def make_app():
 
 
 async def main():
+    global cluster
+
     loop = asyncio.get_running_loop()
     loop.create_task(start_tornado())
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
     loop.create_task(tunnel_tornado())
-    running = True
-    while running:
-        global cluster
 
-        await asyncio.sleep(60)
+    running = True
+
+    while running:
+        await asyncio.sleep(6)
         logging.debug(
             f"Cluster: {cluster.status} - Scheduler: {cluster.scheduler.status}"
         )
