@@ -372,7 +372,7 @@ class LogsHandler(tornado.web.RequestHandler):
 
 class AdaptHandler(tornado.web.RequestHandler):
     def get(self):
-        minimum = int(self.get_argument("minmum"))
+        minimum = int(self.get_argument("minimum"))
         maximum = int(self.get_argument("maximum"))
         cluster.adapt(minimum_jobs=minimum, maximum_jobs=maximum)
         self.write(f"adapt jobs to min {minimum} and max {maximum}")
