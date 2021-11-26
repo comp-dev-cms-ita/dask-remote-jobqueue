@@ -584,4 +584,12 @@ class RemoteHTCondor(object):
 
     @logger.catch
     async def _adapt(self, minimum: int, maximum: int):
-        pass
+        # adapt the cluster
+        target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimum={minimum}&maximum={maximum}"
+        logger.debug(
+            f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
+        )
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(target_url)
+            logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
