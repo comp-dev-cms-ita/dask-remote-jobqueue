@@ -562,6 +562,7 @@ class RemoteHTCondor(object):
         # To avoid wrong call on scheduler_info when make_cluster after deletion
         self.scheduler_address = ""
 
+    @logger.catch
     def scale(self, n: int):
         if self.asynchronous:
             return self._scale(n)
@@ -579,6 +580,7 @@ class RemoteHTCondor(object):
             resp = await client.get(target_url)
             logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
+    @logger.catch
     def adapt(self, minimum: int, maximum: int):
         if self.asynchronous:
             return self._adapt(minimum, maximum)
