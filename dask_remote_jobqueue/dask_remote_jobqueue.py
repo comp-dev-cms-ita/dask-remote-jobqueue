@@ -302,23 +302,32 @@ class RemoteHTCondor(object):
                 f"[_start][tornado_address: http://localhost:{self.tornado_port}]"
             )
 
-            await asyncio.sleep(6.0)
-
             logger.debug("[_start][Test connections...]")
             async with httpx.AsyncClient() as client:
-                target_url = f"http://localhost:{self.tornado_port}"
-                logger.debug(f"[_start][check controller][{target_url}]")
-                resp = await client.get(target_url)
-                logger.debug(f"[_start][check controller][resp({resp.status_code})]")
-                if resp.status_code != 200:
-                    raise Exception("Cannot connect to controller")
+                for attempt in range(6):
+                    await asyncio.sleep(2.0)
 
-                target_url = self.dashboard_link
-                logger.debug(f"[_start][check dashboard][{target_url}]")
-                resp = await client.get(target_url)
-                logger.debug(f"[_start][check dashboard][resp({resp.status_code})]")
-                if resp.status_code != 200:
-                    raise Exception("Cannot connect to dashboard")
+                    logger.debug(f"[_start][Test connections: attempt {attempt}]")
+                    try:
+                        target_url = f"http://localhost:{self.tornado_port}"
+                        logger.debug(f"[_start][check controller][{target_url}]")
+                        resp = await client.get(target_url)
+                        logger.debug(
+                            f"[_start][check controller][resp({resp.status_code})]"
+                        )
+                        if resp.status_code != 200:
+                            raise Exception("Cannot connect to controller")
+
+                        target_url = self.dashboard_link
+                        logger.debug(f"[_start][check dashboard][{target_url}]")
+                        resp = await client.get(target_url)
+                        logger.debug(
+                            f"[_start][check dashboard][resp({resp.status_code})]"
+                        )
+                        if resp.status_code != 200:
+                            raise Exception("Cannot connect to dashboard")
+                    except httpx.RemoteProtocolError:
+                        pass
 
             self.state = State.running
 
