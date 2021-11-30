@@ -303,6 +303,7 @@ class RemoteHTCondor(object):
             )
 
             logger.debug("[_start][Test connections...]")
+            connection_checks = False
             async with httpx.AsyncClient() as client:
                 for attempt in range(6):
                     await asyncio.sleep(2.0)
@@ -316,7 +317,7 @@ class RemoteHTCondor(object):
                             f"[_start][check controller][resp({resp.status_code})]"
                         )
                         if resp.status_code != 200:
-                            raise Exception("Cannot connect to controller")
+                            logger.debug("[_start][Cannot connect to controller]")
 
                         target_url = self.dashboard_link
                         logger.debug(f"[_start][check dashboard][{target_url}]")
@@ -325,9 +326,14 @@ class RemoteHTCondor(object):
                             f"[_start][check dashboard][resp({resp.status_code})]"
                         )
                         if resp.status_code != 200:
-                            raise Exception("Cannot connect to dashboard")
+                            logger.debug("[_start][Cannot connect to dashboard]")
                     except httpx.RemoteProtocolError:
                         pass
+                    else:
+                        connection_checks = True
+
+            if not connection_checks:
+                raise Exception("Cannot check connections")
 
             self.state = State.running
 
