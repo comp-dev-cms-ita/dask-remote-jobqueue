@@ -242,6 +242,86 @@ class RemoteHTCondor(object):
         else:
             cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
             cur_loop.run_until_complete(self._start())
+            self.start_sched_process.join()
+            cur_loop.run_until_complete(self._make_connections())
+
+    @logger.catch
+    async def _make_connections(self):
+        # Prepare the ssh tunnel
+        ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
+
+        logger.debug("[_start][Create ssh tunnel")
+        logger.debug(f"[_start][url: {ssh_url}]")
+        logger.debug(f"[_start][username: {self.name}]")
+        logger.debug(f"[_start][password: {self.token}]")
+
+        self.connection_process = ConnectionLoop(
+            self.connection_process_q,
+            ssh_url=ssh_url,
+            ssh_url_port=self.ssh_url_port,
+            username=self.name,
+            token=self.token,
+            sched_port=self.sched_port,
+            dash_port=self.dash_port,
+            tornado_port=self.tornado_port,
+        )
+        logger.debug("[_start][Start connection process]")
+        self.connection_process.start()
+        logger.debug("[_start][Wait for queue...]")
+        while self.connection_process_q.empty():
+            pass
+        logger.debug("[_start][Check connection_q response]")
+        started_tunnels = self.connection_process_q.get()
+        logger.debug(f"[_start][response: {started_tunnels}]")
+        if started_tunnels != "OK":
+            raise Exception("Cannot make any tunnel...")
+
+        self.address = "localhost:{}".format(self.sched_port)
+        self.dashboard_address = "http://localhost:{}".format(self.dash_port)
+
+        logger.debug(f"[_start][address: {self.address}]")
+        logger.debug(f"[_start][dashboard_address: {self.dashboard_address}]")
+
+        self.scheduler_address = self.address
+        self.dashboard_link = f"{self.dashboard_address}/status"
+
+        logger.debug(f"[_start][scheduler_address: {self.scheduler_address}]")
+        logger.debug(f"[_start][dashboard_link: {self.dashboard_link}]")
+        logger.debug(f"[_start][tornado_address: http://localhost:{self.tornado_port}]")
+
+        logger.debug("[_start][Test connections...]")
+        connection_checks = False
+        async with httpx.AsyncClient() as client:
+            for attempt in range(6):
+                await asyncio.sleep(2.0)
+
+                logger.debug(f"[_start][Test connections: attempt {attempt}]")
+                try:
+                    target_url = f"http://localhost:{self.tornado_port}"
+                    logger.debug(f"[_start][check controller][{target_url}]")
+                    resp = await client.get(target_url)
+                    logger.debug(
+                        f"[_start][check controller][resp({resp.status_code})]"
+                    )
+                    if resp.status_code != 200:
+                        logger.debug("[_start][Cannot connect to controller]")
+
+                    target_url = self.dashboard_link
+                    logger.debug(f"[_start][check dashboard][{target_url}]")
+                    resp = await client.get(target_url)
+                    logger.debug(f"[_start][check dashboard][resp({resp.status_code})]")
+                    if resp.status_code != 200:
+                        logger.debug("[_start][Cannot connect to dashboard]")
+                except httpx.RemoteProtocolError:
+                    pass
+                else:
+                    connection_checks = True
+                    break
+
+        if not connection_checks:
+            raise Exception("Cannot check connections")
+
+        self.state = State.running
 
     @logger.catch
     async def _start(self):
@@ -255,94 +335,16 @@ class RemoteHTCondor(object):
             self.state = State.start
 
             self.start_sched_process.start()
-            self.start_sched_process.join()
 
+            logger.debug("[_start][waiting for cluster id...]")
             while self.start_sched_process_q.empty():
                 pass
             logger.debug("[_start][get cluster id]")
             self.cluster_id = self.start_sched_process_q.get()
             logger.debug(f"[_start][cluster_id: {self.cluster_id}")
 
-            await asyncio.sleep(2.0)
-            # Prepare the ssh tunnel
-            ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
-
-            logger.debug("[_start][Create ssh tunnel")
-            logger.debug(f"[_start][url: {ssh_url}]")
-            logger.debug(f"[_start][username: {self.name}]")
-            logger.debug(f"[_start][password: {self.token}]")
-
-            self.connection_process = ConnectionLoop(
-                self.connection_process_q,
-                ssh_url=ssh_url,
-                ssh_url_port=self.ssh_url_port,
-                username=self.name,
-                token=self.token,
-                sched_port=self.sched_port,
-                dash_port=self.dash_port,
-                tornado_port=self.tornado_port,
-            )
-            logger.debug("[_start][Start connection process]")
-            self.connection_process.start()
-            logger.debug("[_start][Wait for queue...]")
-            while self.connection_process_q.empty():
-                pass
-            logger.debug("[_start][Check connection_q response]")
-            started_tunnels = self.connection_process_q.get()
-            logger.debug(f"[_start][response: {started_tunnels}]")
-            if started_tunnels != "OK":
-                raise Exception("Cannot make any tunnel...")
-
-            self.address = "localhost:{}".format(self.sched_port)
-            self.dashboard_address = "http://localhost:{}".format(self.dash_port)
-
-            logger.debug(f"[_start][address: {self.address}]")
-            logger.debug(f"[_start][dashboard_address: {self.dashboard_address}]")
-
-            self.scheduler_address = self.address
-            self.dashboard_link = f"{self.dashboard_address}/status"
-
-            logger.debug(f"[_start][scheduler_address: {self.scheduler_address}]")
-            logger.debug(f"[_start][dashboard_link: {self.dashboard_link}]")
-            logger.debug(
-                f"[_start][tornado_address: http://localhost:{self.tornado_port}]"
-            )
-
-            logger.debug("[_start][Test connections...]")
-            connection_checks = False
-            async with httpx.AsyncClient() as client:
-                for attempt in range(6):
-                    await asyncio.sleep(2.0)
-
-                    logger.debug(f"[_start][Test connections: attempt {attempt}]")
-                    try:
-                        target_url = f"http://localhost:{self.tornado_port}"
-                        logger.debug(f"[_start][check controller][{target_url}]")
-                        resp = await client.get(target_url)
-                        logger.debug(
-                            f"[_start][check controller][resp({resp.status_code})]"
-                        )
-                        if resp.status_code != 200:
-                            logger.debug("[_start][Cannot connect to controller]")
-
-                        target_url = self.dashboard_link
-                        logger.debug(f"[_start][check dashboard][{target_url}]")
-                        resp = await client.get(target_url)
-                        logger.debug(
-                            f"[_start][check dashboard][resp({resp.status_code})]"
-                        )
-                        if resp.status_code != 200:
-                            logger.debug("[_start][Cannot connect to dashboard]")
-                    except httpx.RemoteProtocolError:
-                        pass
-                    else:
-                        connection_checks = True
-                        break
-
-            if not connection_checks:
-                raise Exception("Cannot check connections")
-
-            self.state = State.running
+            if self.asynchronous:
+                self.scheduler_address = "Scheduler job submitted..."
 
     def close(self):
         if self.asynchronous:
