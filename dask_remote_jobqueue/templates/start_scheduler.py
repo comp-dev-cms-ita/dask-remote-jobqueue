@@ -65,6 +65,9 @@ sched_port = int(os.environ.get("SCHED_PORT", "42000"))
 dash_port = int(os.environ.get("DASH_PORT", "42001"))
 tornado_port = int(os.environ.get("TORNADO_PORT", "42002"))
 
+logger.debug(f"name: {name}")
+logger.debug(f"token: {token}")
+
 ##
 # Local testing
 # tornado_port = 8181
