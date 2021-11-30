@@ -257,6 +257,12 @@ class RemoteHTCondor(object):
             self.start_sched_process.start()
             self.start_sched_process.join()
 
+            while self.start_sched_process_q.empty():
+                pass
+            logger.debug("[_start][get cluster id]")
+            self.cluster_id = self.start_sched_process_q.get()
+            logger.debug(f"[_start][cluster_id: {self.cluster_id}")
+
             await asyncio.sleep(2.0)
             # Prepare the ssh tunnel
             ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"

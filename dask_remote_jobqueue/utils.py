@@ -283,6 +283,8 @@ class StartDaskScheduler(Process):
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
                 raise ex
 
+            self._queue.put(self._cluster_id)
+
         # Wait for the job to be running
         job_status = 1
 
