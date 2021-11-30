@@ -7,7 +7,7 @@ import json
 
 # import math
 import os
-import tempfile
+import weakref
 from enum import Enum
 from inspect import isawaitable
 from multiprocessing import Process, Queue
@@ -23,10 +23,9 @@ import requests
 from distributed.deploy.spec import NoOpAwaitable, SpecCluster
 from distributed.deploy.ssh import Scheduler as SSHSched
 from distributed.security import Security
-from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
-from .utils import ConnectionLoop
+from .utils import ConnectionLoop, StartDaskScheduler
 
 
 class State(Enum):
@@ -58,8 +57,14 @@ class RemoteHTCondor(object):
         # Inner class status
         self.state: State = State.idle
         self.asynchronous: bool = asynchronous
-        self.connection_q: "Queue" = Queue()
-        self.connection_process: "ConnectionLoop" = ConnectionLoop(self.connection_q)
+        self.connection_process_q: "Queue" = Queue()
+        self.connection_process: "ConnectionLoop" = ConnectionLoop(
+            self.connection_process_q
+        )
+        self.start_sched_process_q: "Queue" = Queue()
+        self.start_sched_process: "StartDaskScheduler" = StartDaskScheduler(
+            weakref.ref(self), self.start_sched_process_q
+        )
 
         # Address of the dask scheduler and its dashboard
         self.address: str = ""
@@ -247,113 +252,9 @@ class RemoteHTCondor(object):
         """
         if self.state == State.idle:
             self.state = State.start
-            # Prepare HTCondor Job
-            with tempfile.TemporaryDirectory() as tmpdirname:
 
-                env = Environment(
-                    loader=PackageLoader("dask_remote_jobqueue"),
-                    autoescape=select_autoescape(),
-                )
-
-                files = [
-                    "scheduler.sh",
-                    "scheduler.sub",
-                    "start_scheduler.py",
-                    "job_submit.sh",
-                    "job_rm.sh",
-                ]
-
-                selected_sitename = "# requirements: Nil"
-                if self.sitename:
-                    selected_sitename = (
-                        f'requirements = ( SiteName == "{self.sitename}" )'
-                    )
-
-                for f in files:
-                    tmpl = env.get_template(f)
-                    with open(tmpdirname + "/" + f, "w") as dest:
-                        render = tmpl.render(
-                            name=self.name,
-                            token=self.token,
-                            sched_port=self.sched_port,
-                            dash_port=self.dash_port,
-                            tornado_port=self.tornado_port,
-                            refresh_token=self.refresh_token,
-                            iam_server=self.iam_server,
-                            client_id=self.client_id,
-                            client_secret=self.client_secret,
-                            htc_ca=self.htc_ca,
-                            htc_debug=self.htc_debug,
-                            htc_collector=self.htc_collector,
-                            htc_schedd_host=self.htc_schedd_host,
-                            htc_schedd_name=self.htc_schedd_name,
-                            htc_scitoken_file=self.htc_scitoken_file,
-                            htc_sec_method=self.htc_sec_method,
-                            selected_sitename=selected_sitename,
-                        )
-                        logger.debug(f"[_start][{dest.name}]")
-                        logger.debug(f"[_start][\n{render}\n]")
-                        # print(render)
-                        dest.write(render)
-
-                cmd = "cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
-
-                # Submit HTCondor Job to start the scheduler
-                try:
-                    logger.debug(f"[_start][{cmd}]")
-                    cmd_out = check_output(
-                        cmd, stderr=STDOUT, shell=True, env=os.environ
-                    )
-                    logger.debug(f"[_start][{cmd_out.decode('ascii')}]")
-                except Exception as ex:
-                    raise ex
-
-                try:
-                    self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
-                    logger.debug(f"[_start][{self.cluster_id}]")
-                except Exception:
-                    ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
-                    raise ex
-
-                if not self.cluster_id:
-                    ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
-                    raise ex
-
-            # Wait for the job to be running
-            job_status = 1
-
-            # While job is idle or hold
-            while job_status in [1, 5]:
-                await asyncio.sleep(6.0)
-
-                logger.debug("[_start][Check job status]")
-                cmd = "condor_q {}.0 -json".format(self.cluster_id)
-                logger.debug(f"[_start][{cmd}]")
-
-                cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
-                logger.debug(f"[_start][{cmd_out.decode('ascii')}]")
-
-                try:
-                    classAd = json.loads(cmd_out)
-                    logger.debug(f"[_start][classAd: {classAd}]")
-                except Exception as cur_ex:
-                    logger.debug(f"[_start][{cur_ex}]")
-                    ex = Exception(
-                        "Failed to decode claasAd for scheduler: %s" % cmd_out
-                    )
-                    raise ex
-
-                job_status = classAd[0].get("JobStatus")
-                logger.debug(f"[_start][job_status: {job_status}]")
-                if job_status == 1:
-                    logger.debug(f"[_start][{self.cluster_id}.0 still idle]")
-                    continue
-                elif job_status == 5:
-                    logger.debug(f"[_start][{self.cluster_id}.0 still hold]")
-                    continue
-                elif job_status != 2:
-                    ex = Exception("Scheduler job in error {}".format(job_status))
-                    raise ex
+            self.start_sched_process.start()
+            self.start_sched_process.join()
 
             await asyncio.sleep(2.0)
             # Prepare the ssh tunnel
@@ -365,7 +266,7 @@ class RemoteHTCondor(object):
             logger.debug(f"[_start][password: {self.token}]")
 
             self.connection_process = ConnectionLoop(
-                self.connection_q,
+                self.connection_process_q,
                 ssh_url=ssh_url,
                 ssh_url_port=self.ssh_url_port,
                 username=self.name,
@@ -377,10 +278,10 @@ class RemoteHTCondor(object):
             logger.debug("[_start][Start connection process]")
             self.connection_process.start()
             logger.debug("[_start][Wait for queue...]")
-            while self.connection_q.empty():
+            while self.connection_process_q.empty():
                 pass
             logger.debug("[_start][Check connection_q response]")
-            started_tunnels = self.connection_q.get()
+            started_tunnels = self.connection_process_q.get()
             logger.debug(f"[_start][response: {started_tunnels}]")
             if started_tunnels != "OK":
                 raise Exception("Cannot make any tunnel...")
@@ -453,7 +354,7 @@ class RemoteHTCondor(object):
         await asyncio.sleep(1.0)
 
         # Close scheduler connection
-        self.connection_q.put("STOP")
+        self.connection_process_q.put("STOP")
 
         await asyncio.sleep(1.0)
 
