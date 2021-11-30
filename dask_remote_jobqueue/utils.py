@@ -234,7 +234,7 @@ class StartDaskScheduler(Process):
 
             try:
                 self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
-                logger.debug(f"[StartDaskScheduler][run][jobid: {self.cluster_id}]")
+                logger.debug(f"[StartDaskScheduler][run][jobid: {self.cluster_id}.0]")
             except Exception:
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
                 raise ex
