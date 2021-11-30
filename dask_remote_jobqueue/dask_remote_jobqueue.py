@@ -32,7 +32,8 @@ class State(Enum):
     idle = 1
     start = 2
     scheduler_up = 3
-    running = 4
+    waiting_connections = 4
+    running = 5
 
 
 class RemoteHTCondor(object):
@@ -196,7 +197,9 @@ class RemoteHTCondor(object):
         if self.state != State.running:
             if self.asynchronous:
                 if self.state == State.start:
-                    logger.debug("[scheduler_info][waiting for scheduler update...]")
+                    logger.debug(
+                        "[Scheduler][scheduler_info][waiting for scheduler update...]"
+                    )
                     if not self.start_sched_process_q.empty():
                         msg = self.start_sched_process_q.get()
                         if msg == "SCHEDULERJOB==RUNNING":
@@ -205,12 +208,13 @@ class RemoteHTCondor(object):
                                 "Running, waiting for connection..."
                             )
 
-                    return self._scheduler_info
-
                 elif self.state == State.scheduler_up:
-                    logger.debug("[scheduler_info][make connections...]")
+                    logger.debug("[Scheduler][scheduler_info][make connections...]")
                     cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                    cur_loop.run_until_complete(self._make_connections())
+                    cur_loop.create_task(self._make_connections())
+                    self.state = State.waiting_connections
+
+                return self._scheduler_info
             else:
                 return self._scheduler_info
 
