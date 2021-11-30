@@ -153,6 +153,7 @@ class StartDaskScheduler(Process):
         self.htc_scitoken_file: str = ""
         self.htc_sec_method: str = ""
 
+    def _copy_attributes(self):
         # Copy attributes
         if self._remoteHTCondor:
             self.sitename = getattr(self._remoteHTCondor, "sitename")
@@ -173,6 +174,7 @@ class StartDaskScheduler(Process):
             self.htc_sec_method = getattr(self._remoteHTCondor, "htc_sec_method")
 
     def run(self):
+        self._copy_attributes()
         # Prepare HTCondor Job
         with tempfile.TemporaryDirectory() as tmpdirname:
 

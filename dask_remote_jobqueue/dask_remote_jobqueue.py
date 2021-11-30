@@ -57,6 +57,7 @@ class RemoteHTCondor(object):
         # Inner class status
         self.state: State = State.idle
         self.asynchronous: bool = asynchronous
+
         self.connection_process_q: "Queue" = Queue()
         self.connection_process: "ConnectionLoop" = ConnectionLoop(
             self.connection_process_q
