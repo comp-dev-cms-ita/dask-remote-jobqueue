@@ -128,12 +128,12 @@ class StartDaskScheduler(Process):
 
     def __init__(
         self,
-        remoteHTCondor: "weakref.ReferenceType",
+        remoteHTCondor: "weakref.ProxyType",
         queue: "Queue",
     ):
         logger.debug("[StartDaskScheduler][init]")
         super().__init__()
-        self._remoteHTCondor: object = remoteHTCondor()
+        self._remoteHTCondor: "weakref.ProxyType" = remoteHTCondor()
         self.queue: "Queue" = queue
 
         self.sitename: str = ""
@@ -154,24 +154,52 @@ class StartDaskScheduler(Process):
         self.htc_sec_method: str = ""
 
     def _copy_attributes(self):
-        # Copy attributes
-        if self._remoteHTCondor:
-            self.sitename = getattr(self._remoteHTCondor, "sitename")
-            self.token = getattr(self._remoteHTCondor, "token")
-            self.sched_port = getattr(self._remoteHTCondor, "sched_port")
-            self.dash_port = getattr(self._remoteHTCondor, "dash_port")
-            self.tornado_port = getattr(self._remoteHTCondor, "tornado_port")
-            self.refresh_token = getattr(self._remoteHTCondor, "refresh_token")
-            self.iam_server = getattr(self._remoteHTCondor, "iam_server")
-            self.client_id = getattr(self._remoteHTCondor, "client_id")
-            self.client_secret = getattr(self._remoteHTCondor, "client_secret")
-            self.htc_ca = getattr(self._remoteHTCondor, "htc_ca")
-            self.htc_debug = getattr(self._remoteHTCondor, "htc_debug")
-            self.htc_collector = getattr(self._remoteHTCondor, "htc_collector")
-            self.htc_schedd_host = getattr(self._remoteHTCondor, "htc_schedd_host")
-            self.htc_schedd_name = getattr(self._remoteHTCondor, "htc_schedd_name")
-            self.htc_scitoken_file = getattr(self._remoteHTCondor, "htc_scitoken_file")
-            self.htc_sec_method = getattr(self._remoteHTCondor, "htc_sec_method")
+        self.sitename = getattr(self._remoteHTCondor, "sitename")
+        logger.debug(f"[StartDaskScheduler][copy of sitename: {self.sitename}]")
+        self.token = getattr(self._remoteHTCondor, "token")
+        logger.debug(f"[StartDaskScheduler][copy of token: {self.token}]")
+        self.sched_port = getattr(self._remoteHTCondor, "sched_port")
+        logger.debug(f"[StartDaskScheduler][copy of sched_port: {self.sched_port}]")
+        self.dash_port = getattr(self._remoteHTCondor, "dash_port")
+        logger.debug(f"[StartDaskScheduler][copy of dash_port: {self.dash_port}]")
+        self.tornado_port = getattr(self._remoteHTCondor, "tornado_port")
+        logger.debug(f"[StartDaskScheduler][copy of tornado_port: {self.tornado_port}]")
+        self.refresh_token = getattr(self._remoteHTCondor, "refresh_token")
+        logger.debug(
+            f"[StartDaskScheduler][copy of refresh_token: {self.refresh_token}]"
+        )
+        self.iam_server = getattr(self._remoteHTCondor, "iam_server")
+        logger.debug(f"[StartDaskScheduler][copy of iam_server: {self.iam_server}]")
+        self.client_id = getattr(self._remoteHTCondor, "client_id")
+        logger.debug(f"[StartDaskScheduler][copy of client_id: {self.client_id}]")
+        self.client_secret = getattr(self._remoteHTCondor, "client_secret")
+        logger.debug(
+            f"[StartDaskScheduler][copy of client_secret: {self.client_secret}]"
+        )
+        self.htc_ca = getattr(self._remoteHTCondor, "htc_ca")
+        logger.debug(f"[StartDaskScheduler][copy of htc_ca: {self.htc_ca}]")
+        self.htc_debug = getattr(self._remoteHTCondor, "htc_debug")
+        logger.debug(f"[StartDaskScheduler][copy of htc_debug: {self.htc_debug}]")
+        self.htc_collector = getattr(self._remoteHTCondor, "htc_collector")
+        logger.debug(
+            f"[StartDaskScheduler][copy of htc_collector: {self.htc_collector}]"
+        )
+        self.htc_schedd_host = getattr(self._remoteHTCondor, "htc_schedd_host")
+        logger.debug(
+            f"[StartDaskScheduler][copy of htc_schedd_host: {self.htc_schedd_host}]"
+        )
+        self.htc_schedd_name = getattr(self._remoteHTCondor, "htc_schedd_name")
+        logger.debug(
+            f"[StartDaskScheduler][copy of htc_schedd_name: {self.htc_schedd_name}]"
+        )
+        self.htc_scitoken_file = getattr(self._remoteHTCondor, "htc_scitoken_file")
+        logger.debug(
+            f"[StartDaskScheduler][copy of htc_scitoken_file: {self.htc_scitoken_file}]"
+        )
+        self.htc_sec_method = getattr(self._remoteHTCondor, "htc_sec_method")
+        logger.debug(
+            f"[StartDaskScheduler][copy of htc_sec_method: {self.htc_sec_method}]"
+        )
 
     def run(self):
         self._copy_attributes()
