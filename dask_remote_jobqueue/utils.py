@@ -133,7 +133,7 @@ class StartDaskScheduler(Process):
     ):
         logger.debug("[StartDaskScheduler][init]")
         super().__init__()
-        self._remoteHTCondor: "weakref.ProxyType" = remoteHTCondor()
+        self._remoteHTCondor: "weakref.ProxyType" = remoteHTCondor
         self.queue: "Queue" = queue
 
         self.sitename: str = ""
