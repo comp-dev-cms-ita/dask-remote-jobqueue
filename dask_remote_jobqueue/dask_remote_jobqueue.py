@@ -31,7 +31,8 @@ from .utils import ConnectionLoop, StartDaskScheduler
 class State(Enum):
     idle = 1
     start = 2
-    running = 3
+    scheduler_up = 3
+    running = 4
 
 
 class RemoteHTCondor(object):
@@ -192,8 +193,26 @@ class RemoteHTCondor(object):
         logger.debug(
             f"[Scheduler][scheduler_info][scheduler_address: {self.scheduler_address}][state: {self.state}]"
         )
-        if not self.scheduler_address or self.state in [State.idle, State.start]:
-            return self._scheduler_info
+        if not self.scheduler_address or self.state != State.running:
+            if self.asynchronous:
+                if self.state == State.start:
+                    logger.debug("[scheduler_info][waiting for scheduler update...]")
+                    if not self.start_sched_process_q.empty():
+                        msg = self.start_sched_process_q.get()
+                        if msg == "SCHEDULERJOB==RUNNING":
+                            self.state = State.scheduler_up
+                            self.scheduler_address = (
+                                "Running, waiting for connection..."
+                            )
+
+                    return self._scheduler_info
+
+                elif self.state == State.scheduler_up:
+                    logger.debug("[scheduler_info][make connections...]")
+                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+                    cur_loop.run_until_complete(self._make_connections())
+            else:
+                return self._scheduler_info
 
         # Check controller
         target_url = f"http://127.0.0.1:{self.tornado_port}/"
@@ -244,6 +263,29 @@ class RemoteHTCondor(object):
             cur_loop.run_until_complete(self._start())
             self.start_sched_process.join()
             cur_loop.run_until_complete(self._make_connections())
+
+    @logger.catch
+    async def _start(self):
+        """Start the dask cluster scheduler.
+
+        The dask cluster scheduler will be launched as a HTCondor Job. Then, it
+        will be enstablished a tunnel to communicate with it. Thus, the result
+        scheduler job will be like a long running service.
+        """
+        if self.state == State.idle:
+            self.state = State.start
+
+            self.start_sched_process.start()
+
+            logger.debug("[_start][waiting for cluster id...]")
+            while self.start_sched_process_q.empty():
+                pass
+            logger.debug("[_start][get cluster id]")
+            self.cluster_id = self.start_sched_process_q.get()
+            logger.debug(f"[_start][cluster_id: {self.cluster_id}")
+
+            if self.asynchronous:
+                self.scheduler_address = "Job submitted..."
 
     @logger.catch
     async def _make_connections(self):
@@ -323,29 +365,6 @@ class RemoteHTCondor(object):
 
         self.state = State.running
 
-    @logger.catch
-    async def _start(self):
-        """Start the dask cluster scheduler.
-
-        The dask cluster scheduler will be launched as a HTCondor Job. Then, it
-        will be enstablished a tunnel to communicate with it. Thus, the result
-        scheduler job will be like a long running service.
-        """
-        if self.state == State.idle:
-            self.state = State.start
-
-            self.start_sched_process.start()
-
-            logger.debug("[_start][waiting for cluster id...]")
-            while self.start_sched_process_q.empty():
-                pass
-            logger.debug("[_start][get cluster id]")
-            self.cluster_id = self.start_sched_process_q.get()
-            logger.debug(f"[_start][cluster_id: {self.cluster_id}")
-
-            if self.asynchronous:
-                self.scheduler_address = "Scheduler job submitted..."
-
     def close(self):
         if self.asynchronous:
             return self._close()
@@ -355,13 +374,16 @@ class RemoteHTCondor(object):
 
     @logger.catch
     async def _close(self):
-        # Close the dask cluster
-        target_url = f"http://127.0.0.1:{self.tornado_port}/close"
-        logger.debug(f"[Scheduler][close][url: {target_url}]")
+        if self.state == State.running:
+            # Close the dask cluster
+            target_url = f"http://127.0.0.1:{self.tornado_port}/close"
+            logger.debug(f"[Scheduler][close][url: {target_url}]")
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(target_url)
-            logger.debug(f"[Scheduler][close][resp({resp.status_code}): {resp.text}]")
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(target_url)
+                logger.debug(
+                    f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
+                )
 
         # Remove the HTCondor dask scheduler job
         cmd = "condor_rm {}.0".format(self.cluster_id)
@@ -378,10 +400,11 @@ class RemoteHTCondor(object):
 
         await asyncio.sleep(1.0)
 
-        # Close scheduler connection
-        self.connection_process_q.put("STOP")
+        if self.state == State.running:
+            # Close scheduler connection
+            self.connection_process_q.put("STOP")
 
-        await asyncio.sleep(1.0)
+            await asyncio.sleep(1.0)
 
         self.state = State.idle
         # To avoid wrong call on scheduler_info when make_cluster after deletion

@@ -323,6 +323,7 @@ class StartDaskScheduler(Process):
                 ex = Exception("Scheduler job in error {}".format(job_status))
                 raise ex
 
+        self._queue.put("SCHEDULERJOB==RUNNING")
         sleep(2.0)
         logger.debug(
             f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> {job_status}]"
