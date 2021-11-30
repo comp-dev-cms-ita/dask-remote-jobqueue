@@ -8,6 +8,7 @@ import json
 # import math
 import os
 import tempfile
+from enum import Enum
 from inspect import isawaitable
 from multiprocessing import Process, Queue
 from random import randrange
@@ -25,115 +26,13 @@ from distributed.security import Security
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
+from .utils import ConnectionLoop
 
-class ConnectionLoop(Process):
 
-    """Class to control the tunneling processes."""
-
-    def __init__(
-        self,
-        queue: "Queue",
-        ssh_url: str = "",
-        ssh_url_port: int = -1,
-        username: str = "",
-        token: str = "",
-        sched_port: int = -1,
-        dash_port: int = -1,
-        tornado_port: int = -1,
-    ):
-        logger.debug(f"[ConnectionLoop][init][{ssh_url}][{ssh_url_port}]")
-        super().__init__()
-        self.cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.cur_loop)
-        # Ref: https://asyncssh.readthedocs.io/
-        self.connection = None
-        self.ssh_url: str = ssh_url
-        self.ssh_url_port: int = ssh_url_port
-        self.username: str = username
-        self.token: str = token
-        self.sched_port: int = sched_port
-        self.dash_port: int = dash_port
-        self.tornado_port: int = tornado_port
-        self.tasks: list = []
-        self.queue: "Queue" = queue
-
-    def stop(self):
-        self.loop = asyncio.get_running_loop()
-
-        async def _close_connection(connection):
-            logger.debug(f"[ConnectionLoop][close connection {connection}]")
-            connection.close()
-
-        self.loop.create_task(_close_connection(self.connection))
-
-    def run(self):
-        async def forward_connection():
-            logger.debug(
-                f"[ConnectionLoop][connect][{self.ssh_url}][{self.ssh_url_port}][{self.token}]"
-            )
-            # Ref: https://asyncssh.readthedocs.io/
-            self.connection = await asyncssh.connect(
-                host=self.ssh_url,
-                port=self.ssh_url_port,
-                username=self.username,
-                password=self.token,
-                known_hosts=None,
-            )
-            logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
-            sched_conn = await self.connection.forward_local_port(
-                "127.0.0.1",
-                self.sched_port,
-                "127.0.0.1",
-                self.sched_port,
-            )
-
-            logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
-            dash_port = await self.connection.forward_local_port(
-                "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
-            )
-
-            logger.debug(f"[ConnectionLoop][connect][tornado][{self.tornado_port}]")
-            tornado_port = await self.connection.forward_local_port(
-                "127.0.0.1",
-                self.tornado_port,
-                "127.0.0.1",
-                self.tornado_port,
-            )
-
-            if self.queue:
-                self.queue.put("OK")
-
-            await sched_conn.wait_closed()
-            logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
-            await dash_port.wait_closed()
-            logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
-            await tornado_port.wait_closed()
-            logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
-
-            await self.connection.wait_closed()
-
-        async def _main_loop():
-            running: bool = True
-            while running:
-                await asyncio.sleep(6.0)
-                logger.debug(f"[ConnectionLoop][running: {running}]")
-                if not self.queue.empty():
-                    res = self.queue.get_nowait()
-                    logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
-                    if res and res == "STOP":
-                        self.stop()
-                        running = False
-                        logger.debug("[ConnectionLoop][Exiting in ... 6]")
-                        for i in reversed(range(6)):
-                            logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
-                            await asyncio.sleep(1)
-            logger.debug("[ConnectionLoop][DONE]")
-
-        logger.debug("[ConnectionLoop][create task]")
-        self.tasks.append(self.cur_loop.create_task(forward_connection()))
-        logger.debug("[ConnectionLoop][run main loop until complete]")
-        self.cur_loop.run_until_complete(_main_loop())
-        logger.debug("[ConnectionLoop][exit]")
+class State(Enum):
+    idle = 1
+    start = 2
+    running = 3
 
 
 class RemoteHTCondor(object):
@@ -157,7 +56,7 @@ class RemoteHTCondor(object):
         logger.debug("[RemoteHTCondor][init]")
 
         # Inner class status
-        self.status: int = 0
+        self.state: State = State.idle
         self.asynchronous: bool = asynchronous
         self.connection_q: "Queue" = Queue()
         self.connection_process: "ConnectionLoop" = ConnectionLoop(self.connection_q)
@@ -247,6 +146,13 @@ class RemoteHTCondor(object):
     def logs_port(self) -> int:
         return self.tornado_port
 
+    async def __aenter__(self):
+        """Enable entering in the async context."""
+        logger.debug(f"[RemoteHTCondor][__aenter__][state: {self.state}]")
+        await self
+        assert self.state == State.running
+        return self
+
     def __await__(self):
         """Make the class awaitable.
 
@@ -256,28 +162,21 @@ class RemoteHTCondor(object):
 
         async def closure():
             logger.debug(
-                f"[RemoteHTCondor][__await__][closure IN][status: {self.status}]"
+                f"[RemoteHTCondor][__await__][closure IN][state: {self.state}]"
             )
-            if self.status == 0:
+            if self.state == State.idle:
                 await self._start()
             logger.debug(
-                f"[RemoteHTCondor][__await__][closure EXIT][status: {self.status}]"
+                f"[RemoteHTCondor][__await__][closure EXIT][state: {self.state}]"
             )
             return self
 
         return closure().__await__()
 
-    async def __aenter__(self):
-        """Enable entering in the async context."""
-        logger.debug(f"[RemoteHTCondor][__aenter__][status: {self.status}]")
-        await self
-        assert self.status == 2
-        return self
-
     async def __aexit__(self, typ, value, traceback):
         """Enable exiting from the async context."""
-        logger.debug(f"[RemoteHTCondor][__aexit__][status: {self.status}]")
-        if self.status == 2:
+        logger.debug(f"[RemoteHTCondor][__aexit__][state: {self.state}]")
+        if self.state == State.running:
             f = self.close()
             if isawaitable(f):
                 await f
@@ -285,9 +184,9 @@ class RemoteHTCondor(object):
     @property
     def scheduler_info(self) -> dict:
         logger.debug(
-            f"[Scheduler][scheduler_info][scheduler_address: {self.scheduler_address}][status: {self.status}]"
+            f"[Scheduler][scheduler_info][scheduler_address: {self.scheduler_address}][state: {self.state}]"
         )
-        if not self.scheduler_address or self.status in [0, 1]:
+        if not self.scheduler_address or self.state in [State.idle, State.start]:
             return self._scheduler_info
 
         # Check controller
@@ -346,8 +245,8 @@ class RemoteHTCondor(object):
         will be enstablished a tunnel to communicate with it. Thus, the result
         scheduler job will be like a long running service.
         """
-        if self.status == 0:
-            self.status = 1
+        if self.state == State.idle:
+            self.state = State.start
             # Prepare HTCondor Job
             with tempfile.TemporaryDirectory() as tmpdirname:
 
@@ -519,7 +418,7 @@ class RemoteHTCondor(object):
                 if resp.status_code != 200:
                     raise Exception("Cannot connect to dashboard")
 
-            self.status = 2
+            self.state = State.running
 
     def close(self):
         if self.asynchronous:
@@ -558,7 +457,7 @@ class RemoteHTCondor(object):
 
         await asyncio.sleep(1.0)
 
-        self.status = 0
+        self.state = State.idle
         # To avoid wrong call on scheduler_info when make_cluster after deletion
         self.scheduler_address = ""
 
