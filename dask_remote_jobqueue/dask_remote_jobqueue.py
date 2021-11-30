@@ -331,6 +331,7 @@ class RemoteHTCondor(object):
                         pass
                     else:
                         connection_checks = True
+                        break
 
             if not connection_checks:
                 raise Exception("Cannot check connections")
