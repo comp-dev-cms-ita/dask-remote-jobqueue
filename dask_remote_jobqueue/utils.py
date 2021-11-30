@@ -161,7 +161,7 @@ class StartDaskScheduler(Process):
         logger.debug(f"[StartDaskScheduler][copy of sitename: {self._sitename}]")
         self._name = getattr(self._remoteHTCondor, "name")
         logger.debug(f"[StartDaskScheduler][copy of name: {self._name}]")
-        self._sched_port = getattr(self._remoteHTCondor, "sched_port")
+        self._token = getattr(self._remoteHTCondor, "name")
         logger.debug(f"[StartDaskScheduler][copy of token: {self._token}]")
         self._sched_port = getattr(self._remoteHTCondor, "sched_port")
         logger.debug(f"[StartDaskScheduler][copy of sched_port: {self._sched_port}]")
