@@ -131,7 +131,7 @@ class StartDaskScheduler(Process):
         remoteHTCondor: "weakref.ReferenceType",
         queue: "Queue",
     ):
-        logger.debug(f"[StartDaskScheduler][init]")
+        logger.debug("[StartDaskScheduler][init]")
         super().__init__()
         self._remoteHTCondor: object = remoteHTCondor()
         self.queue: "Queue" = queue
