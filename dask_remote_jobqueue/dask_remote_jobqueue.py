@@ -193,7 +193,7 @@ class RemoteHTCondor(object):
         logger.debug(
             f"[Scheduler][scheduler_info][scheduler_address: {self.scheduler_address}][state: {self.state}]"
         )
-        if not self.scheduler_address or self.state != State.running:
+        if self.state != State.running:
             if self.asynchronous:
                 if self.state == State.start:
                     logger.debug("[scheduler_info][waiting for scheduler update...]")
