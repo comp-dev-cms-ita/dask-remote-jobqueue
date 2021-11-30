@@ -204,9 +204,7 @@ class RemoteHTCondor(object):
                         msg = self.start_sched_process_q.get()
                         if msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
-                            self.scheduler_address = (
-                                "Running, waiting for connection..."
-                            )
+                            self.scheduler_address = "Waiting for connection..."
 
                 elif self.state == State.scheduler_up:
                     logger.debug("[Scheduler][scheduler_info][make connections...]")
