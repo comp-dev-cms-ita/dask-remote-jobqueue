@@ -9,6 +9,7 @@ from time import sleep
 import asyncssh
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
+import weakref
 
 
 class ConnectionLoop(Process):
@@ -127,31 +128,49 @@ class StartDaskScheduler(Process):
 
     def __init__(
         self,
-        remoteHTCondor: object,
+        remoteHTCondor: "weakref.ReferenceType",
         queue: "Queue",
     ):
         logger.debug(f"[StartDaskScheduler][init]")
         super().__init__()
-        self._remoteHTCondor: object = remoteHTCondor
+        self._remoteHTCondor: object = remoteHTCondor()
         self.queue: "Queue" = queue
 
+        self.sitename: str = ""
+        self.token: str = ""
+        self.sched_port: int = -1
+        self.dash_port: int = -1
+        self.tornado_port: int = -1
+        self.refresh_token: str = ""
+        self.iam_server: str = ""
+        self.client_id: str = ""
+        self.client_secret: str = ""
+        self.htc_ca: str = ""
+        self.htc_debug: str = ""
+        self.htc_collector: str = ""
+        self.htc_schedd_host: str = ""
+        self.htc_schedd_name: str = ""
+        self.htc_scitoken_file: str = ""
+        self.htc_sec_method: str = ""
+
         # Copy attributes
-        self.sitename: str = getattr(self._remoteHTCondor, "sitename")
-        self.token: str = getattr(self._remoteHTCondor, "token")
-        self.sched_port: int = getattr(self._remoteHTCondor, "sched_port")
-        self.dash_port: int = getattr(self._remoteHTCondor, "dash_port")
-        self.tornado_port: int = getattr(self._remoteHTCondor, "tornado_port")
-        self.refresh_token: str = getattr(self._remoteHTCondor, "refresh_token")
-        self.iam_server: str = getattr(self._remoteHTCondor, "iam_server")
-        self.client_id: str = getattr(self._remoteHTCondor, "client_id")
-        self.client_secret: str = getattr(self._remoteHTCondor, "client_secret")
-        self.htc_ca: str = getattr(self._remoteHTCondor, "htc_ca")
-        self.htc_debug: str = getattr(self._remoteHTCondor, "htc_debug")
-        self.htc_collector: str = getattr(self._remoteHTCondor, "htc_collector")
-        self.htc_schedd_host: str = getattr(self._remoteHTCondor, "htc_schedd_host")
-        self.htc_schedd_name: str = getattr(self._remoteHTCondor, "htc_schedd_name")
-        self.htc_scitoken_file: str = getattr(self._remoteHTCondor, "htc_scitoken_file")
-        self.htc_sec_method: str = getattr(self._remoteHTCondor, "htc_sec_method")
+        if self._remoteHTCondor:
+            self.sitename = getattr(self._remoteHTCondor, "sitename")
+            self.token = getattr(self._remoteHTCondor, "token")
+            self.sched_port = getattr(self._remoteHTCondor, "sched_port")
+            self.dash_port = getattr(self._remoteHTCondor, "dash_port")
+            self.tornado_port = getattr(self._remoteHTCondor, "tornado_port")
+            self.refresh_token = getattr(self._remoteHTCondor, "refresh_token")
+            self.iam_server = getattr(self._remoteHTCondor, "iam_server")
+            self.client_id = getattr(self._remoteHTCondor, "client_id")
+            self.client_secret = getattr(self._remoteHTCondor, "client_secret")
+            self.htc_ca = getattr(self._remoteHTCondor, "htc_ca")
+            self.htc_debug = getattr(self._remoteHTCondor, "htc_debug")
+            self.htc_collector = getattr(self._remoteHTCondor, "htc_collector")
+            self.htc_schedd_host = getattr(self._remoteHTCondor, "htc_schedd_host")
+            self.htc_schedd_name = getattr(self._remoteHTCondor, "htc_schedd_name")
+            self.htc_scitoken_file = getattr(self._remoteHTCondor, "htc_scitoken_file")
+            self.htc_sec_method = getattr(self._remoteHTCondor, "htc_sec_method")
 
     def run(self):
         # Prepare HTCondor Job
