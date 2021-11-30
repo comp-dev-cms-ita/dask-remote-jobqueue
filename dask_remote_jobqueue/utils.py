@@ -219,6 +219,7 @@ class StartDaskScheduler(Process):
             )
 
             files = [
+                ".bashrc",
                 "scheduler.sh",
                 "scheduler.sub",
                 "start_scheduler.py",
