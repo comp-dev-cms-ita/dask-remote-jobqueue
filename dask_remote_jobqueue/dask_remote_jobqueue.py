@@ -64,7 +64,7 @@ class RemoteHTCondor(object):
         )
         self.start_sched_process_q: "Queue" = Queue()
         self.start_sched_process: "StartDaskScheduler" = StartDaskScheduler(
-            weakref.proxy(self), self.start_sched_process_q
+            weakref.proxy(self), self.start_sched_process_q, os.environ
         )
 
         # Address of the dask scheduler and its dashboard

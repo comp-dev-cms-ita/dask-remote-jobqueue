@@ -130,11 +130,13 @@ class StartDaskScheduler(Process):
         self,
         remoteHTCondor: "weakref.ProxyType",
         queue: "Queue",
+        environ: "os._Environ",
     ):
         logger.debug("[StartDaskScheduler][init]")
         super().__init__()
         self._remoteHTCondor: "weakref.ProxyType" = remoteHTCondor
         self.queue: "Queue" = queue
+        self.environ: "os._Environ" = environ
 
         self.sitename: str = ""
         self.token: str = ""
@@ -245,9 +247,10 @@ class StartDaskScheduler(Process):
                         htc_sec_method=self.htc_sec_method,
                         selected_sitename=selected_sitename,
                     )
+
                     logger.debug(f"[StartDaskScheduler][run][{dest.name}]")
                     logger.debug(f"[StartDaskScheduler][run][\n{render}\n]")
-                    # print(render)
+
                     dest.write(render)
 
             cmd = "cd {}; condor_submit -spool scheduler.sub".format(tmpdirname)
@@ -255,7 +258,7 @@ class StartDaskScheduler(Process):
             # Submit HTCondor Job to start the scheduler
             try:
                 logger.debug(f"[StartDaskScheduler][run][{cmd}]")
-                cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=os.environ)
+                cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=self.environ)
                 logger.debug(f"[StartDaskScheduler][run][{cmd_out.decode('ascii')}]")
             except Exception as ex:
                 raise ex
