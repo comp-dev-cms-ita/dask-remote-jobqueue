@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright (c) 2021 dciangot
 #
 # This software is released under the MIT License.
