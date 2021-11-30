@@ -135,72 +135,77 @@ class StartDaskScheduler(Process):
         logger.debug("[StartDaskScheduler][init]")
         super().__init__()
         self._remoteHTCondor: "weakref.ProxyType" = remoteHTCondor
-        self.queue: "Queue" = queue
-        self.environ: "os._Environ" = environ
+        self._queue: "Queue" = queue
+        self._environ: "os._Environ" = environ
 
-        self.sitename: str = ""
-        self.token: str = ""
-        self.sched_port: int = -1
-        self.dash_port: int = -1
-        self.tornado_port: int = -1
-        self.refresh_token: str = ""
-        self.iam_server: str = ""
-        self.client_id: str = ""
-        self.client_secret: str = ""
-        self.htc_ca: str = ""
-        self.htc_debug: str = ""
-        self.htc_collector: str = ""
-        self.htc_schedd_host: str = ""
-        self.htc_schedd_name: str = ""
-        self.htc_scitoken_file: str = ""
-        self.htc_sec_method: str = ""
+        self._cluster_id: str = ""
+        self._sitename: str = ""
+        self._token: str = ""
+        self._sched_port: int = -1
+        self._dash_port: int = -1
+        self._tornado_port: int = -1
+        self._refresh_token: str = ""
+        self._iam_server: str = ""
+        self._client_id: str = ""
+        self._client_secret: str = ""
+        self._htc_ca: str = ""
+        self._htc_debug: str = ""
+        self._htc_collector: str = ""
+        self._htc_schedd_host: str = ""
+        self._htc_schedd_name: str = ""
+        self._htc_scitoken_file: str = ""
+        self._htc_sec_method: str = ""
 
     def _copy_attributes(self):
-        self.sitename = getattr(self._remoteHTCondor, "sitename")
-        logger.debug(f"[StartDaskScheduler][copy of sitename: {self.sitename}]")
-        self.token = getattr(self._remoteHTCondor, "token")
-        logger.debug(f"[StartDaskScheduler][copy of token: {self.token}]")
-        self.sched_port = getattr(self._remoteHTCondor, "sched_port")
-        logger.debug(f"[StartDaskScheduler][copy of sched_port: {self.sched_port}]")
-        self.dash_port = getattr(self._remoteHTCondor, "dash_port")
-        logger.debug(f"[StartDaskScheduler][copy of dash_port: {self.dash_port}]")
-        self.tornado_port = getattr(self._remoteHTCondor, "tornado_port")
-        logger.debug(f"[StartDaskScheduler][copy of tornado_port: {self.tornado_port}]")
-        self.refresh_token = getattr(self._remoteHTCondor, "refresh_token")
+        self._sitename = getattr(self._remoteHTCondor, "sitename")
+        logger.debug(f"[StartDaskScheduler][copy of sitename: {self._sitename}]")
+        self._name = getattr(self._remoteHTCondor, "name")
+        logger.debug(f"[StartDaskScheduler][copy of name: {self._name}]")
+        self._sched_port = getattr(self._remoteHTCondor, "sched_port")
+        logger.debug(f"[StartDaskScheduler][copy of token: {self._token}]")
+        self._sched_port = getattr(self._remoteHTCondor, "sched_port")
+        logger.debug(f"[StartDaskScheduler][copy of sched_port: {self._sched_port}]")
+        self._dash_port = getattr(self._remoteHTCondor, "dash_port")
+        logger.debug(f"[StartDaskScheduler][copy of dash_port: {self._dash_port}]")
+        self._tornado_port = getattr(self._remoteHTCondor, "tornado_port")
         logger.debug(
-            f"[StartDaskScheduler][copy of refresh_token: {self.refresh_token}]"
+            f"[StartDaskScheduler][copy of tornado_port: {self._tornado_port}]"
         )
-        self.iam_server = getattr(self._remoteHTCondor, "iam_server")
-        logger.debug(f"[StartDaskScheduler][copy of iam_server: {self.iam_server}]")
-        self.client_id = getattr(self._remoteHTCondor, "client_id")
-        logger.debug(f"[StartDaskScheduler][copy of client_id: {self.client_id}]")
-        self.client_secret = getattr(self._remoteHTCondor, "client_secret")
+        self._refresh_token = getattr(self._remoteHTCondor, "refresh_token")
         logger.debug(
-            f"[StartDaskScheduler][copy of client_secret: {self.client_secret}]"
+            f"[StartDaskScheduler][copy of refresh_token: {self._refresh_token}]"
         )
-        self.htc_ca = getattr(self._remoteHTCondor, "htc_ca")
-        logger.debug(f"[StartDaskScheduler][copy of htc_ca: {self.htc_ca}]")
-        self.htc_debug = getattr(self._remoteHTCondor, "htc_debug")
-        logger.debug(f"[StartDaskScheduler][copy of htc_debug: {self.htc_debug}]")
-        self.htc_collector = getattr(self._remoteHTCondor, "htc_collector")
+        self._iam_server = getattr(self._remoteHTCondor, "iam_server")
+        logger.debug(f"[StartDaskScheduler][copy of iam_server: {self._iam_server}]")
+        self._client_id = getattr(self._remoteHTCondor, "client_id")
+        logger.debug(f"[StartDaskScheduler][copy of client_id: {self._client_id}]")
+        self._client_secret = getattr(self._remoteHTCondor, "client_secret")
         logger.debug(
-            f"[StartDaskScheduler][copy of htc_collector: {self.htc_collector}]"
+            f"[StartDaskScheduler][copy of client_secret: {self._client_secret}]"
         )
-        self.htc_schedd_host = getattr(self._remoteHTCondor, "htc_schedd_host")
+        self._htc_ca = getattr(self._remoteHTCondor, "htc_ca")
+        logger.debug(f"[StartDaskScheduler][copy of htc_ca: {self._htc_ca}]")
+        self._htc_debug = getattr(self._remoteHTCondor, "htc_debug")
+        logger.debug(f"[StartDaskScheduler][copy of htc_debug: {self._htc_debug}]")
+        self._htc_collector = getattr(self._remoteHTCondor, "htc_collector")
         logger.debug(
-            f"[StartDaskScheduler][copy of htc_schedd_host: {self.htc_schedd_host}]"
+            f"[StartDaskScheduler][copy of htc_collector: {self._htc_collector}]"
         )
-        self.htc_schedd_name = getattr(self._remoteHTCondor, "htc_schedd_name")
+        self._htc_schedd_host = getattr(self._remoteHTCondor, "htc_schedd_host")
         logger.debug(
-            f"[StartDaskScheduler][copy of htc_schedd_name: {self.htc_schedd_name}]"
+            f"[StartDaskScheduler][copy of htc_schedd_host: {self._htc_schedd_host}]"
         )
-        self.htc_scitoken_file = getattr(self._remoteHTCondor, "htc_scitoken_file")
+        self._htc_schedd_name = getattr(self._remoteHTCondor, "htc_schedd_name")
         logger.debug(
-            f"[StartDaskScheduler][copy of htc_scitoken_file: {self.htc_scitoken_file}]"
+            f"[StartDaskScheduler][copy of htc_schedd_name: {self._htc_schedd_name}]"
         )
-        self.htc_sec_method = getattr(self._remoteHTCondor, "htc_sec_method")
+        self._htc_scitoken_file = getattr(self._remoteHTCondor, "htc_scitoken_file")
         logger.debug(
-            f"[StartDaskScheduler][copy of htc_sec_method: {self.htc_sec_method}]"
+            f"[StartDaskScheduler][copy of htc_scitoken_file: {self._htc_scitoken_file}]"
+        )
+        self._htc_sec_method = getattr(self._remoteHTCondor, "htc_sec_method")
+        logger.debug(
+            f"[StartDaskScheduler][copy of htc_sec_method: {self._htc_sec_method}]"
         )
 
     def run(self):
@@ -222,29 +227,29 @@ class StartDaskScheduler(Process):
             ]
 
             selected_sitename = "# requirements: Nil"
-            if self.sitename:
-                selected_sitename = f'requirements = ( SiteName == "{self.sitename}" )'
+            if self._sitename:
+                selected_sitename = f'requirements = ( SiteName == "{self._sitename}" )'
 
             for f in files:
                 tmpl = env.get_template(f)
                 with open(tmpdirname + "/" + f, "w") as dest:
                     render = tmpl.render(
-                        name=self.name,
-                        token=self.token,
-                        sched_port=self.sched_port,
-                        dash_port=self.dash_port,
-                        tornado_port=self.tornado_port,
-                        refresh_token=self.refresh_token,
-                        iam_server=self.iam_server,
-                        client_id=self.client_id,
-                        client_secret=self.client_secret,
-                        htc_ca=self.htc_ca,
-                        htc_debug=self.htc_debug,
-                        htc_collector=self.htc_collector,
-                        htc_schedd_host=self.htc_schedd_host,
-                        htc_schedd_name=self.htc_schedd_name,
-                        htc_scitoken_file=self.htc_scitoken_file,
-                        htc_sec_method=self.htc_sec_method,
+                        name=self._name,
+                        token=self._token,
+                        sched_port=self._sched_port,
+                        dash_port=self._dash_port,
+                        tornado_port=self._tornado_port,
+                        refresh_token=self._refresh_token,
+                        iam_server=self._iam_server,
+                        client_id=self._client_id,
+                        client_secret=self._client_secret,
+                        htc_ca=self._htc_ca,
+                        htc_debug=self._htc_debug,
+                        htc_collector=self._htc_collector,
+                        htc_schedd_host=self._htc_schedd_host,
+                        htc_schedd_name=self._htc_schedd_name,
+                        htc_scitoken_file=self._htc_scitoken_file,
+                        htc_sec_method=self._htc_sec_method,
                         selected_sitename=selected_sitename,
                     )
 
@@ -258,21 +263,23 @@ class StartDaskScheduler(Process):
             # Submit HTCondor Job to start the scheduler
             try:
                 logger.debug(
-                    f"[StartDaskScheduler][run][{cmd}][environ: {self.environ}]"
+                    f"[StartDaskScheduler][run][{cmd}][environ: {self._environ}]"
                 )
-                cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=self.environ)
+                cmd_out = check_output(
+                    cmd, stderr=STDOUT, shell=True, env=self._environ
+                )
                 logger.debug(f"[StartDaskScheduler][run][{cmd_out.decode('ascii')}]")
             except Exception as ex:
                 raise ex
 
             try:
-                self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
-                logger.debug(f"[StartDaskScheduler][run][jobid: {self.cluster_id}.0]")
+                self._cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
+                logger.debug(f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0]")
             except Exception:
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
                 raise ex
 
-            if not self.cluster_id:
+            if not self._cluster_id:
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
                 raise ex
 
@@ -284,7 +291,7 @@ class StartDaskScheduler(Process):
             sleep(6.0)
 
             logger.debug("[StartDaskScheduler][run][Check job status]")
-            cmd = "condor_q {}.0 -json".format(self.cluster_id)
+            cmd = "condor_q {}.0 -json".format(self._cluster_id)
             logger.debug(f"[StartDaskScheduler][run][{cmd}]")
 
             cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
@@ -302,12 +309,12 @@ class StartDaskScheduler(Process):
             logger.debug(f"[StartDaskScheduler][run][job_status: {job_status}]")
             if job_status == 1:
                 logger.debug(
-                    f"[StartDaskScheduler][run][jobid: {self.cluster_id}.0 -> still idle]"
+                    f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still idle]"
                 )
                 continue
             elif job_status == 5:
                 logger.debug(
-                    f"[StartDaskScheduler][run][jobid: {self.cluster_id}.0 -> still hold]"
+                    f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still hold]"
                 )
                 continue
             elif job_status != 2:
@@ -316,5 +323,5 @@ class StartDaskScheduler(Process):
 
         sleep(2.0)
         logger.debug(
-            f"[StartDaskScheduler][run][jobid: {self.cluster_id}.0 -> {job_status}]"
+            f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> {job_status}]"
         )
