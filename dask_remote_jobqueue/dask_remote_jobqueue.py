@@ -97,13 +97,13 @@ class RemoteHTCondor(object):
         self.sshNamespace = os.environ.get("SSH_NAMESPACE", ssh_namespace)
 
         # HTCondor vars
-        self.htc_ca = "$PWD/ca.crt"
+        self.htc_ca = "./ca.crt"
         # os.environ.get("_condor_AUTH_SSL_CLIENT_CAFILE")
         self.htc_debug = os.environ.get("_condor_TOOL_DEBUG")
         self.htc_collector = os.environ.get("_condor_COLLECTOR_HOST")
         self.htc_schedd_host = os.environ.get("_condor_SCHEDD_HOST")
         self.htc_schedd_name = os.environ.get("_condor_SCHEDD_NAME")
-        self.htc_scitoken_file = "$PWD/token"
+        self.htc_scitoken_file = "./token"
         # os.environ.get("_condor_SCITOKENS_FILE")
         self.htc_sec_method = os.environ.get(
             "_condor_SEC_DEFAULT_AUTHENTICATION_METHODS"
