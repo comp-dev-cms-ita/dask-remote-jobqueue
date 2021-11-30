@@ -234,7 +234,7 @@ class StartDaskScheduler(Process):
 
             try:
                 self.cluster_id = str(cmd_out).split("cluster ")[1].strip(".\\n'")
-                logger.debug(f"[StartDaskScheduler][run][{self.cluster_id}]")
+                logger.debug(f"[StartDaskScheduler][run][jobid: {self.cluster_id}]")
             except Exception:
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
                 raise ex
@@ -269,12 +269,12 @@ class StartDaskScheduler(Process):
             logger.debug(f"[StartDaskScheduler][run][job_status: {job_status}]")
             if job_status == 1:
                 logger.debug(
-                    f"[StartDaskScheduler][run][{self.cluster_id}.0 still idle]"
+                    f"[StartDaskScheduler][run][jobid: {self.cluster_id}.0 -> still idle]"
                 )
                 continue
             elif job_status == 5:
                 logger.debug(
-                    f"[StartDaskScheduler][run][{self.cluster_id}.0 still hold]"
+                    f"[StartDaskScheduler][run][jobid: {self.cluster_id}.0 -> still hold]"
                 )
                 continue
             elif job_status != 2:
@@ -282,4 +282,6 @@ class StartDaskScheduler(Process):
                 raise ex
 
         sleep(2.0)
-        logger.debug(f"[StartDaskScheduler][run][{self.cluster_id}.0 running]")
+        logger.debug(
+            f"[StartDaskScheduler][run][jobid: {self.cluster_id}.0 -> {job_status}]"
+        )
