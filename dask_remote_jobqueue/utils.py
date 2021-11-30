@@ -257,7 +257,9 @@ class StartDaskScheduler(Process):
 
             # Submit HTCondor Job to start the scheduler
             try:
-                logger.debug(f"[StartDaskScheduler][run][{cmd}]")
+                logger.debug(
+                    f"[StartDaskScheduler][run][{cmd}][environ: {self.environ}]"
+                )
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True, env=self.environ)
                 logger.debug(f"[StartDaskScheduler][run][{cmd_out.decode('ascii')}]")
             except Exception as ex:
