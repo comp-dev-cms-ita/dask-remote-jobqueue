@@ -280,3 +280,6 @@ class StartDaskScheduler(Process):
             elif job_status != 2:
                 ex = Exception("Scheduler job in error {}".format(job_status))
                 raise ex
+
+        sleep(2.0)
+        logger.debug(f"[StartDaskScheduler][run][{self.cluster_id}.0 running]")
