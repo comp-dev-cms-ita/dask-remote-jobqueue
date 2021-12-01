@@ -414,11 +414,14 @@ class RemoteHTCondor(object):
 
     @logger.catch
     def scale(self, n: int):
-        if self.asynchronous:
-            return self._scale(n)
+        if self.state == State.running:
+            if self.asynchronous:
+                return self._scale(n)
+            else:
+                cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+                cur_loop.run_until_complete(self._scale(n))
         else:
-            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-            cur_loop.run_until_complete(self._scale(n))
+            raise Exception("Cluster is not yet running...")
 
     @logger.catch
     async def _scale(self, n: int):
@@ -432,11 +435,14 @@ class RemoteHTCondor(object):
 
     @logger.catch
     def adapt(self, minimum: int, maximum: int):
-        if self.asynchronous:
-            return self._adapt(minimum, maximum)
+        if self.state == State.running:
+            if self.asynchronous:
+                return self._adapt(minimum, maximum)
+            else:
+                cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+                cur_loop.run_until_complete(self._adapt(minimum, maximum))
         else:
-            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-            cur_loop.run_until_complete(self._adapt(minimum, maximum))
+            raise Exception("Cluster is not yet running...")
 
     @logger.catch
     async def _adapt(self, minimum: int, maximum: int):
