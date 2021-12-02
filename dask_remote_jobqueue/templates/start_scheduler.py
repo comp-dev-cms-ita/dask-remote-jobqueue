@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 with open("config.yaml") as file_:
     defaults = yaml.safe_load(file_)
 
-dask.config = dask.config.update(dask.config, defaults)
+dask.config.update(dask.config.config, defaults)
 
 logger.debug(f"[dask][config][default][{dask.config.config}]")
 
