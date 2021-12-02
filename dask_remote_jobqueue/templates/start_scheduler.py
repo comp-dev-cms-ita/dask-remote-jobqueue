@@ -25,7 +25,7 @@ with open("config.yaml") as file_:
 
 dask.config.update_defaults(defaults)
 
-logger.debug(f"[dask][config][{dask.config.config}]")
+logger.debug(f"[dask][config][default][{dask.config.config}]")
 
 
 class MyHTCondorJob(HTCondorJob):
@@ -127,6 +127,8 @@ cluster = HTCondorCluster(
     job_extra=job_extra_vars,
     silence_logs="debug",
 )
+
+logger.debug(f"[dask][config][{dask.config.config}]")
 
 
 async def tunnel_scheduler():
