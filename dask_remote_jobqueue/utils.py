@@ -219,6 +219,7 @@ class StartDaskScheduler(Process):
             )
 
             files = [
+                "config.yaml",
                 ".bashrc",
                 "scheduler.sh",
                 "scheduler.sub",

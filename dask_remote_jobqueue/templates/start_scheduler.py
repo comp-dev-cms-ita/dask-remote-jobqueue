@@ -8,14 +8,24 @@ import logging
 import os
 
 import asyncssh
+import dask.config
 import tornado.ioloop
 import tornado.web
+import yaml
 from dask.distributed import Client, Status
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+with open("config.yaml") as file_:
+    defaults = yaml.safe_load(file_)
+
+dask.config.update_defaults(defaults)
+
+logger.debug(f"[dask][config][{dask.config.config}]")
 
 
 class MyHTCondorJob(HTCondorJob):
