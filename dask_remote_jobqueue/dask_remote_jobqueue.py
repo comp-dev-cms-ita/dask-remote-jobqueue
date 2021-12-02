@@ -434,13 +434,15 @@ class RemoteHTCondor(object):
             logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     @logger.catch
-    def adapt(self, minimum_jobs: int = None, maximum_jobs: int = None):
+    def adapt(self, minimum: int = None, maximum: int = None):
         if self.state == State.running:
             if self.asynchronous:
-                return self._adapt(minimum_jobs, maximum_jobs)
+                return self._adapt(minimum_jobs=minimum, maximum_jobs=maximum)
             else:
                 cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                cur_loop.run_until_complete(self._adapt(minimum_jobs, maximum_jobs))
+                cur_loop.run_until_complete(
+                    self._adapt(minimum_jobs=minimum, maximum_jobs=maximum)
+                )
         else:
             raise Exception("Cluster is not yet running...")
 
