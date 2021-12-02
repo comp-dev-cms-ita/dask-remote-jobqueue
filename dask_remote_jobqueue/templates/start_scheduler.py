@@ -38,7 +38,6 @@ class MyHTCondorJob(HTCondorJob):
             *args,
             **kwargs,
             python="source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh; conda activate cms-dodas; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh; python3",
-            local_directory="./scratch",
         )
 
 
@@ -126,6 +125,7 @@ cluster = HTCondorCluster(
     scheduler_options=scheduler_options_vars,
     job_extra=job_extra_vars,
     silence_logs="debug",
+    local_directory="./scratch",
 )
 
 logger.debug(f"[dask][config][{dask.config.config}]")
