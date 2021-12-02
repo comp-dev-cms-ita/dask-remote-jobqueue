@@ -28,6 +28,7 @@ class MyHTCondorJob(HTCondorJob):
             *args,
             **kwargs,
             python="source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh; conda activate cms-dodas; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh; python3",
+            local_directory="./scratch",
         )
 
 
