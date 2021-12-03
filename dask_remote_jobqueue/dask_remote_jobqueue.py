@@ -8,6 +8,7 @@ import json
 # import math
 import os
 import weakref
+from dataclasses import dataclass
 from enum import Enum
 from inspect import isawaitable
 from multiprocessing import Process, Queue
@@ -34,6 +35,14 @@ class State(Enum):
     scheduler_up = 3
     waiting_connections = 4
     running = 5
+
+
+@dataclass
+class AdaptiveProp:
+    """Class for keeping track of minimum and maximum workers in adaptive mode."""
+
+    minimum: int
+    maximum: int
 
 
 class RemoteHTCondor(object):
@@ -439,20 +448,21 @@ class RemoteHTCondor(object):
             logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     @logger.catch
-    def adapt(self, minimum: int = None, maximum: int = None):
+    def adapt(self, minimum: int, maximum: int):
         if self.state == State.running:
             if self.asynchronous:
                 return self._adapt(minimum_jobs=minimum, maximum_jobs=maximum)
             else:
                 cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                cur_loop.run_until_complete(
+                return cur_loop.run_until_complete(
                     self._adapt(minimum_jobs=minimum, maximum_jobs=maximum)
                 )
+
         else:
             raise Exception("Cluster is not yet running...")
 
     @logger.catch
-    async def _adapt(self, minimum_jobs: int = None, maximum_jobs: int = None):
+    async def _adapt(self, minimum_jobs: int, maximum_jobs: int) -> "AdaptiveProp":
         # adapt the cluster
         target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum_jobs}&maximumJobs={maximum_jobs}"
         logger.debug(
@@ -462,3 +472,5 @@ class RemoteHTCondor(object):
         async with httpx.AsyncClient() as client:
             resp = await client.get(target_url)
             logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
+
+        return AdaptiveProp(minimum_jobs, maximum_jobs)
