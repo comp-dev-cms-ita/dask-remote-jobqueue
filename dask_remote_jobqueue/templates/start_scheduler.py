@@ -124,7 +124,7 @@ cluster = HTCondorCluster(
     disk="1 GB",
     scheduler_options=scheduler_options_vars,
     job_extra=job_extra_vars,
-    silence_logs="debug",
+    # silence_logs="debug",
     local_directory="./scratch",
 )
 
