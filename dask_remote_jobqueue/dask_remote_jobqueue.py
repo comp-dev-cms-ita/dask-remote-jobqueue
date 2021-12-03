@@ -450,7 +450,7 @@ class RemoteHTCondor(object):
     @logger.catch
     def adapt(self, minimum: int, maximum: int):
         if self.state == State.running:
-            target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum_jobs}&maximumJobs={maximum_jobs}"
+            target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
             logger.debug(
                 f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
             )
