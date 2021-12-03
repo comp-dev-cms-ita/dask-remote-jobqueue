@@ -341,7 +341,7 @@ class RemoteHTCondor:
         connection_checks = False
         async with httpx.AsyncClient() as client:
             for attempt in range(6):
-                await asyncio.sleep(2.0)
+                await asyncio.sleep(14.0)
 
                 logger.debug(f"[_start][Test connections: attempt {attempt}]")
                 try:
