@@ -1,0 +1,15 @@
+distributed:
+  worker:
+    memory:
+      rebalance:
+        measure: managed_in_memory
+      spill: 0.75
+      pause: false
+      terminate: false
+
+logging:
+  distributed: debug
+  distributed.client: debug
+  distributed.scheduler: debug
+  distributed.nanny: debug
+  bokeh: error

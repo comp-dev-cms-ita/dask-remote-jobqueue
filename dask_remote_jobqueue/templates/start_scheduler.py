@@ -8,14 +8,24 @@ import logging
 import os
 
 import asyncssh
+import dask.config
 import tornado.ioloop
 import tornado.web
+import yaml
 from dask.distributed import Client, Status
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+with open("config.yaml") as file_:
+    defaults = yaml.safe_load(file_)
+
+dask.config.update(dask.config.config, defaults)
+
+logger.debug(f"[dask][config][default][{dask.config.config}]")
 
 
 class MyHTCondorJob(HTCondorJob):
@@ -114,8 +124,11 @@ cluster = HTCondorCluster(
     disk="1 GB",
     scheduler_options=scheduler_options_vars,
     job_extra=job_extra_vars,
-    silence_logs="debug",
+    # silence_logs="debug",
+    local_directory="./scratch",
 )
+
+logger.debug(f"[dask][config][{dask.config.config}]")
 
 
 async def tunnel_scheduler():
@@ -375,8 +388,16 @@ class LogsHandler(tornado.web.RequestHandler):
 
 class AdaptHandler(tornado.web.RequestHandler):
     def get(self):
-        minimum = int(self.get_argument("minimum"))
-        maximum = int(self.get_argument("maximum"))
+        minimum = self.get_argument("minimumJobs")
+        maximum = self.get_argument("maximumJobs")
+        if minimum.lower() != "none":
+            minimum = int(minimum)
+        else:
+            minimum = None
+        if maximum.lower() != "none":
+            maximum = int(maximum)
+        else:
+            maximum = None
         cluster.adapt(minimum_jobs=minimum, maximum_jobs=maximum)
         self.write(f"adapt jobs to min {minimum} and max {maximum}")
 

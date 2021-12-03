@@ -101,12 +101,13 @@ class ConnectionLoop(Process):
         async def _main_loop():
             running: bool = True
             while running:
-                await asyncio.sleep(6.0)
+                await asyncio.sleep(14.0)
                 logger.debug(f"[ConnectionLoop][running: {running}]")
                 if not self.queue.empty():
                     res = self.queue.get_nowait()
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
                     if res and res == "STOP":
+                        await asyncio.sleep(2)
                         self.stop()
                         running = False
                         logger.debug("[ConnectionLoop][Exiting in ... 6]")
@@ -219,6 +220,7 @@ class StartDaskScheduler(Process):
             )
 
             files = [
+                "config.yaml",
                 ".bashrc",
                 "scheduler.sh",
                 "scheduler.sub",
@@ -314,17 +316,19 @@ class StartDaskScheduler(Process):
                 logger.debug(
                     f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still idle]"
                 )
+                self._queue.put_nowait("SCHEDULERJOB==IDLE")
                 continue
             elif job_status == 5:
                 logger.debug(
                     f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still hold]"
                 )
+                self._queue.put_nowait("SCHEDULERJOB==HOLD")
                 continue
             elif job_status != 2:
                 ex = Exception("Scheduler job in error {}".format(job_status))
                 raise ex
 
-        self._queue.put("SCHEDULERJOB==RUNNING")
+        self._queue.put_nowait("SCHEDULERJOB==RUNNING")
         sleep(2.0)
         logger.debug(
             f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> {job_status}]"

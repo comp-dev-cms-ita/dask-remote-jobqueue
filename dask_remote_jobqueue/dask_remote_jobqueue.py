@@ -8,6 +8,7 @@ import json
 # import math
 import os
 import weakref
+from dataclasses import dataclass
 from enum import Enum
 from inspect import isawaitable
 from multiprocessing import Process, Queue
@@ -34,6 +35,14 @@ class State(Enum):
     scheduler_up = 3
     waiting_connections = 4
     running = 5
+
+
+@dataclass
+class AdaptiveProp:
+    """Class for keeping track of minimum and maximum workers in adaptive mode."""
+
+    minimum: int
+    maximum: int
 
 
 class RemoteHTCondor(object):
@@ -202,7 +211,11 @@ class RemoteHTCondor(object):
                     )
                     if not self.start_sched_process_q.empty():
                         msg = self.start_sched_process_q.get()
-                        if msg == "SCHEDULERJOB==RUNNING":
+                        if msg == "SCHEDULERJOB==IDLE":
+                            self.scheduler_address = "Job is idle..."
+                        elif msg == "SCHEDULERJOB==HOLD":
+                            self.scheduler_address = "Job is hold..."
+                        elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
                             self.scheduler_address = "Waiting for connection..."
 
@@ -275,8 +288,6 @@ class RemoteHTCondor(object):
         scheduler job will be like a long running service.
         """
         if self.state == State.idle:
-            self.state = State.start
-
             self.start_sched_process.start()
 
             logger.debug("[_start][waiting for cluster id...]")
@@ -288,6 +299,8 @@ class RemoteHTCondor(object):
 
             if self.asynchronous:
                 self.scheduler_address = "Job submitted..."
+
+            self.state = State.start
 
     @logger.catch
     async def _make_connections(self):
@@ -365,6 +378,7 @@ class RemoteHTCondor(object):
         if not connection_checks:
             raise Exception("Cannot check connections")
 
+        await asyncio.sleep(2)
         self.state = State.running
 
     def close(self):
@@ -400,13 +414,9 @@ class RemoteHTCondor(object):
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
-        await asyncio.sleep(1.0)
-
         if self.state == State.running:
             # Close scheduler connection
             self.connection_process_q.put("STOP")
-
-            await asyncio.sleep(1.0)
 
         self.state = State.idle
         # To avoid wrong call on scheduler_info when make_cluster after deletion
@@ -436,22 +446,15 @@ class RemoteHTCondor(object):
     @logger.catch
     def adapt(self, minimum: int, maximum: int):
         if self.state == State.running:
-            if self.asynchronous:
-                return self._adapt(minimum, maximum)
-            else:
-                cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                cur_loop.run_until_complete(self._adapt(minimum, maximum))
+            target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
+            logger.debug(
+                f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
+            )
+            resp = requests.get(target_url)
+            logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
+            if resp.status_code != 200:
+                raise Exception("Cluster adapt failed...")
+
+            return AdaptiveProp(minimum, maximum)
         else:
             raise Exception("Cluster is not yet running...")
-
-    @logger.catch
-    async def _adapt(self, minimum: int, maximum: int):
-        # adapt the cluster
-        target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimum={minimum}&maximum={maximum}"
-        logger.debug(
-            f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
-        )
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(target_url)
-            logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
