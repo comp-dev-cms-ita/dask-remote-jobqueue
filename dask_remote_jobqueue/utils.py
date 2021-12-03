@@ -315,17 +315,19 @@ class StartDaskScheduler(Process):
                 logger.debug(
                     f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still idle]"
                 )
+                self._queue.put_nowait("SCHEDULERJOB==IDLE")
                 continue
             elif job_status == 5:
                 logger.debug(
                     f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still hold]"
                 )
+                self._queue.put_nowait("SCHEDULERJOB==HOLD")
                 continue
             elif job_status != 2:
                 ex = Exception("Scheduler job in error {}".format(job_status))
                 raise ex
 
-        self._queue.put("SCHEDULERJOB==RUNNING")
+        self._queue.put_nowait("SCHEDULERJOB==RUNNING")
         sleep(2.0)
         logger.debug(
             f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> {job_status}]"
