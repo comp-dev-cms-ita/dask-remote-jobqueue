@@ -12,7 +12,7 @@ import dask.config
 import tornado.ioloop
 import tornado.web
 import yaml
-from dask.distributed import Client, Status
+from dask.distributed import Status
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
@@ -88,9 +88,9 @@ machine_ad_file = os.environ.get("_CONDOR_MACHINE_AD", "")
 if machine_ad_file:
     with open(machine_ad_file) as f:
         lines = f.readlines()
-        for l in lines:
-            if l.startswith("SiteName"):
-                site = l.split("= ")[1].strip("\n").strip()
+        for line in lines:
+            if line.startswith("SiteName"):
+                site = line.split("= ")[1].strip("\n").strip()
                 break
 
 logger.debug(f"SiteName is: {site}")
@@ -207,8 +207,8 @@ class LogsHandler(tornado.web.RequestHandler):
             cluster=True, scheduler=False, workers=False
         ).get("Cluster", "")
         scheduler_logs: list[tuple] = cluster.scheduler.get_logs()
-        worker_logs: list[tuple] = await cluster.scheduler.get_worker_logs()
-        nanny_logs: list[tuple] = await cluster.scheduler.get_worker_logs(nanny=True)
+        worker_logs: dict = await cluster.scheduler.get_worker_logs()
+        nanny_logs: dict = await cluster.scheduler.get_worker_logs(nanny=True)
         self.write(
             """<!DOCTYPE html>
             <html>
@@ -534,8 +534,8 @@ async def main():
         )
         if cluster.scheduler.status in [Status.closed, Status.failed]:
             running = False
-    else:
-        del cluster
+
+    del cluster
 
 
 if __name__ == "__main__":

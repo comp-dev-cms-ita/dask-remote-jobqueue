@@ -11,19 +11,12 @@ import weakref
 from dataclasses import dataclass
 from enum import Enum
 from inspect import isawaitable
-from multiprocessing import Process, Queue
+from multiprocessing import Queue
 from random import randrange
-from re import I
 from subprocess import STDOUT, check_output
-from time import sleep
-from typing import Optional, Union
 
-import asyncssh
 import httpx
 import requests
-from distributed.deploy.spec import NoOpAwaitable, SpecCluster
-from distributed.deploy.ssh import Scheduler as SSHSched
-from distributed.security import Security
 from loguru import logger
 
 from .utils import ConnectionLoop, StartDaskScheduler
@@ -45,7 +38,7 @@ class AdaptiveProp:
     maximum: int
 
 
-class RemoteHTCondor(object):
+class RemoteHTCondor:
 
     """Class to manage a dask scheduler inside an HTCondor Cluster"""
 
@@ -163,13 +156,6 @@ class RemoteHTCondor(object):
     def logs_port(self) -> int:
         return self.tornado_port
 
-    async def __aenter__(self):
-        """Enable entering in the async context."""
-        logger.debug(f"[RemoteHTCondor][__aenter__][state: {self.state}]")
-        await self
-        assert self.state == State.running
-        return self
-
     def __await__(self):
         """Make the class awaitable.
 
@@ -190,7 +176,14 @@ class RemoteHTCondor(object):
 
         return closure().__await__()
 
-    async def __aexit__(self, typ, value, traceback):
+    async def __aenter__(self):
+        """Enable entering in the async context."""
+        logger.debug(f"[RemoteHTCondor][__aenter__][state: {self.state}]")
+        await self
+        assert self.state == State.running
+        return self
+
+    async def __aexit__(self, *_):
         """Enable exiting from the async context."""
         logger.debug(f"[RemoteHTCondor][__aexit__][state: {self.state}]")
         if self.state == State.running:
@@ -225,9 +218,7 @@ class RemoteHTCondor(object):
                     cur_loop.create_task(self._make_connections())
                     self.state = State.waiting_connections
 
-                return self._scheduler_info
-            else:
-                return self._scheduler_info
+            return self._scheduler_info
 
         # Check controller
         target_url = f"http://127.0.0.1:{self.tornado_port}/"
@@ -273,11 +264,11 @@ class RemoteHTCondor(object):
     def start(self):
         if self.asynchronous:
             return self._start()
-        else:
-            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-            cur_loop.run_until_complete(self._start())
-            self.start_sched_process.join()
-            cur_loop.run_until_complete(self._make_connections())
+
+        cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+        cur_loop.run_until_complete(self._start())
+        self.start_sched_process.join()
+        return cur_loop.run_until_complete(self._make_connections())
 
     @logger.catch
     async def _start(self):
@@ -384,9 +375,9 @@ class RemoteHTCondor(object):
     def close(self):
         if self.asynchronous:
             return self._close()
-        else:
-            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-            cur_loop.run_until_complete(self._close())
+
+        cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+        return cur_loop.run_until_complete(self._close())
 
     @logger.catch
     async def _close(self):
@@ -427,11 +418,11 @@ class RemoteHTCondor(object):
         if self.state == State.running:
             if self.asynchronous:
                 return self._scale(n)
-            else:
-                cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                cur_loop.run_until_complete(self._scale(n))
-        else:
-            raise Exception("Cluster is not yet running...")
+
+            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+            return cur_loop.run_until_complete(self._scale(n))
+
+        raise Exception("Cluster is not yet running...")
 
     @logger.catch
     async def _scale(self, n: int):
@@ -456,5 +447,5 @@ class RemoteHTCondor(object):
                 raise Exception("Cluster adapt failed...")
 
             return AdaptiveProp(minimum, maximum)
-        else:
-            raise Exception("Cluster is not yet running...")
+
+        raise Exception("Cluster is not yet running...")

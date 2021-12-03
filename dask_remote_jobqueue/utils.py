@@ -2,6 +2,8 @@ import asyncio
 import json
 import os
 import tempfile
+import weakref
+from typing import Union
 from multiprocessing import Process, Queue
 from subprocess import STDOUT, check_output
 from time import sleep
@@ -9,7 +11,6 @@ from time import sleep
 import asyncssh
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
-import weakref
 
 
 class ConnectionLoop(Process):
@@ -18,7 +19,7 @@ class ConnectionLoop(Process):
 
     def __init__(
         self,
-        queue: "Queue",
+        queue: Queue,
         ssh_url: str = "",
         ssh_url_port: int = -1,
         username: str = "",
@@ -32,7 +33,7 @@ class ConnectionLoop(Process):
         self.cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
         asyncio.set_event_loop(self.cur_loop)
         # Ref: https://asyncssh.readthedocs.io/
-        self.connection = None
+        self.connection: Union[asyncssh.SSHClientConnection, None] = None
         self.ssh_url: str = ssh_url
         self.ssh_url_port: int = ssh_url_port
         self.username: str = username
@@ -129,15 +130,15 @@ class StartDaskScheduler(Process):
 
     def __init__(
         self,
-        remoteHTCondor: "weakref.ProxyType",
+        remoteHTCondor: weakref.ProxyType,
         queue: "Queue",
-        environ: "os._Environ",
+        environ: os._Environ,
     ):
         logger.debug("[StartDaskScheduler][init]")
         super().__init__()
-        self._remoteHTCondor: "weakref.ProxyType" = remoteHTCondor
+        self._remoteHTCondor: weakref.ProxyType = remoteHTCondor
         self._queue: "Queue" = queue
-        self._environ: "os._Environ" = environ
+        self._environ: os._Environ = environ
 
         self._cluster_id: str = ""
         self._sitename: str = ""
@@ -318,13 +319,13 @@ class StartDaskScheduler(Process):
                 )
                 self._queue.put_nowait("SCHEDULERJOB==IDLE")
                 continue
-            elif job_status == 5:
+            if job_status == 5:
                 logger.debug(
                     f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still hold]"
                 )
                 self._queue.put_nowait("SCHEDULERJOB==HOLD")
                 continue
-            elif job_status != 2:
+            if job_status != 2:
                 ex = Exception("Scheduler job in error {}".format(job_status))
                 raise ex
 
