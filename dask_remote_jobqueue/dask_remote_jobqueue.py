@@ -450,25 +450,15 @@ class RemoteHTCondor(object):
     @logger.catch
     def adapt(self, minimum: int, maximum: int):
         if self.state == State.running:
-            if self.asynchronous:
-                _ = self._adapt(minimum_jobs=minimum, maximum_jobs=maximum)
-            else:
-                cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                cur_loop.run_until_complete(
-                    self._adapt(minimum_jobs=minimum, maximum_jobs=maximum)
-                )
+            target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum_jobs}&maximumJobs={maximum_jobs}"
+            logger.debug(
+                f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
+            )
+            resp = requests.get(target_url)
+            logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
+            if resp.status_code != 200:
+                raise Exception("Cluster adapt failed...")
+
             return AdaptiveProp(minimum, maximum)
         else:
             raise Exception("Cluster is not yet running...")
-
-    @logger.catch
-    async def _adapt(self, minimum_jobs: int, maximum_jobs: int):
-        # adapt the cluster
-        target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum_jobs}&maximumJobs={maximum_jobs}"
-        logger.debug(
-            f"[Scheduler][adapt][minimum: {minimum_jobs}|maximum: {maximum_jobs}][url: {target_url}]"
-        )
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(target_url)
-            logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
