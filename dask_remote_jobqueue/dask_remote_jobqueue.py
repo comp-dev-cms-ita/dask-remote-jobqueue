@@ -451,7 +451,7 @@ class RemoteHTCondor(object):
     def adapt(self, minimum: int, maximum: int):
         if self.state == State.running:
             if self.asynchronous:
-                self._adapt(minimum_jobs=minimum, maximum_jobs=maximum)
+                _ = self._adapt(minimum_jobs=minimum, maximum_jobs=maximum)
             else:
                 cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
                 cur_loop.run_until_complete(
