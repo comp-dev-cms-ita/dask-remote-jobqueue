@@ -405,13 +405,13 @@ class RemoteHTCondor:
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
-        if self.state == State.running:
-            # Close scheduler connection
-            self.connection_process_q.put("STOP")
-
         self.state = State.idle
         # To avoid wrong call on scheduler_info when make_cluster after deletion
         self.scheduler_address = ""
+
+        if self.state == State.running:
+            # Close scheduler connection
+            self.connection_process_q.put("STOP")
 
     @logger.catch
     def scale(self, n: int):
