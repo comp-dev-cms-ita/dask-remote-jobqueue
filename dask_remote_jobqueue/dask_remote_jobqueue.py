@@ -414,13 +414,9 @@ class RemoteHTCondor(object):
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
-        await asyncio.sleep(1.0)
-
         if self.state == State.running:
             # Close scheduler connection
             self.connection_process_q.put("STOP")
-
-            await asyncio.sleep(1.0)
 
         self.state = State.idle
         # To avoid wrong call on scheduler_info when make_cluster after deletion
