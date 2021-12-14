@@ -98,7 +98,7 @@ logger.debug(f"SiteName is: {site}")
 scheduler_options_vars = {
     "host": ":{}".format(sched_port),
     "dashboard_address": "127.0.0.1:{}".format(dash_port),
-    "idle_timeout": "1h",
+    "idle_timeout": "4h",
 }
 job_extra_vars = {
     "+OWNER": '"' + name.split("-")[0] + '"',
