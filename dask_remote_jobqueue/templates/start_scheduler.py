@@ -197,7 +197,7 @@ class JobScriptHandler(tornado.web.RequestHandler):
 class CloseHandler(tornado.web.RequestHandler):
     def get(self):
         cluster.scale(jobs=0)
-        sleep(6)
+        sleep(2)
         cluster.close()
         self.write("cluster closed")
 

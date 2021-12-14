@@ -28,6 +28,7 @@ class State(Enum):
     scheduler_up = 3
     waiting_connections = 4
     running = 5
+    closing = 6
 
 
 @dataclass
@@ -213,10 +214,10 @@ class RemoteHTCondor:
                             self.scheduler_address = "Waiting for connection..."
 
                 elif self.state == State.scheduler_up:
+                    self.state = State.waiting_connections
                     logger.debug("[Scheduler][scheduler_info][make connections...]")
                     cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
                     cur_loop.create_task(self._make_connections())
-                    self.state = State.waiting_connections
 
             return self._scheduler_info
 
@@ -381,16 +382,22 @@ class RemoteHTCondor:
 
     @logger.catch
     async def _close(self):
-        if self.state == State.running:
+        was_running = self.state == State.running
+
+        self.state = State.closing
+
+        if was_running:
             # Close the dask cluster
             target_url = f"http://127.0.0.1:{self.tornado_port}/close"
             logger.debug(f"[Scheduler][close][url: {target_url}]")
 
-            async with httpx.AsyncClient(timeout=14.0) as client:
+            async with httpx.AsyncClient(timeout=6.0) as client:
                 resp = await client.get(target_url)
                 logger.debug(
                     f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
                 )
+
+        await asyncio.sleep(2.0)
 
         # Remove the HTCondor dask scheduler job
         cmd = "condor_rm {}.0".format(self.cluster_id)
@@ -405,7 +412,7 @@ class RemoteHTCondor:
         if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
             raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
-        if self.state == State.running:
+        if was_running:
             # Close scheduler connection
             self.connection_process_q.put("STOP")
 
