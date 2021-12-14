@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+from time import sleep
 
 import asyncssh
 import dask.config
@@ -15,7 +16,6 @@ import yaml
 from dask.distributed import Status
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
-
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -196,6 +196,8 @@ class JobScriptHandler(tornado.web.RequestHandler):
 
 class CloseHandler(tornado.web.RequestHandler):
     def get(self):
+        cluster.scale(jobs=0)
+        sleep(6)
         cluster.close()
         self.write("cluster closed")
 
