@@ -6,17 +6,16 @@ import asyncio
 import json
 import logging
 import os
-from time import sleep
+from multiprocessing import Process, Queue
 
 import asyncssh
 import dask.config
 import tornado.ioloop
 import tornado.web
 import yaml
-from dask.distributed import Status
+
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
-from multiprocessing import Process, Queue
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -123,18 +122,11 @@ logger.debug(f"[dask][config][{dask.config.config}]")
 
 class SchedulerProc(Process):
     def __init__(self, queue: Queue):
+        super().__init__()
+
         self.queue: Queue = queue
-        self.running: bool = False
-        self.cluster: HTCondorCluster = HTCondorCluster(
-            job_cls=MyHTCondorJob,
-            cores=1,
-            memory="3 GB",
-            disk="1 GB",
-            scheduler_options=scheduler_options_vars,
-            job_extra=job_extra_vars,
-            # silence_logs="debug",
-            local_directory="./scratch",
-        )
+        self.__running: bool = False
+        self.cluster = None
         logger.debug(f"[SchedulerProc][dask][config][{dask.config.config}]")
 
     def _worker_spec(self) -> dict:
@@ -163,9 +155,19 @@ class SchedulerProc(Process):
         return workers
 
     def run(self):
-        self.running = True
+        self.cluster = HTCondorCluster(
+            job_cls=MyHTCondorJob,
+            cores=2,
+            memory="4 GB",
+            disk="1 GB",
+            scheduler_options=scheduler_options_vars,
+            job_extra=job_extra_vars,
+            # silence_logs="debug",
+            local_directory="./scratch",
+        )
+        self.__running = True
 
-        while self.running:
+        while self.__running:
             if not self.queue.empty():
                 msg = self.queue.get()
                 if msg["op"] == "job_script":
@@ -173,10 +175,8 @@ class SchedulerProc(Process):
                 elif msg["op"] == "sched_id":
                     self.queue.put(self.cluster.scheduler.id)
                 elif msg["op"] == "close":
-                    self.cluster.scale(jobs=0)
-                    sleep(2)
+                    self.__running = False
                     self.cluster.close()
-                    self.running = False
                 elif msg["op"] == "adapt":
                     self.cluster.adapt(
                         minimum_jobs=msg["minimum_jobs"],
@@ -604,9 +604,8 @@ def make_app(sched_q: Queue):
 
 
 async def main(sched_q: Queue):
-    global cluster
-
     loop = asyncio.get_running_loop()
+
     loop.create_task(start_tornado(sched_q))
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
@@ -615,13 +614,16 @@ async def main(sched_q: Queue):
     running = True
 
     while running:
-        await asyncio.sleep(6)
+        await asyncio.sleep(60)
         logging.debug("Running")
+        sched_q.put("close")
+        break
 
 
 if __name__ == "__main__":
-    logger.debug("start main loop")
-    sched_q = Queue()
+    sched_q: Queue = Queue()
     sched_proc = SchedulerProc(sched_q)
     sched_proc.start()
+
+    logger.debug("start main loop")
     asyncio.run(main(sched_q))
