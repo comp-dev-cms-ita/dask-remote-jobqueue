@@ -101,20 +101,21 @@ class ConnectionLoop(Process):
 
         async def _main_loop():
             running: bool = True
+            logger.debug(f"[ConnectionLoop][running: {running}]")
             while running:
-                await asyncio.sleep(14.0)
-                logger.debug(f"[ConnectionLoop][running: {running}]")
+                await asyncio.sleep(1.0)
+                # logger.debug(f"[ConnectionLoop][running: {running}]")
                 if not self.queue.empty():
                     res = self.queue.get_nowait()
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
                     if res and res == "STOP":
-                        await asyncio.sleep(2)
                         self.stop()
                         running = False
-                        logger.debug("[ConnectionLoop][Exiting in ... 6]")
+                        logger.debug("[ConnectionLoop][Exiting]")
                         for i in reversed(range(6)):
                             logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
                             await asyncio.sleep(1)
+
             logger.debug("[ConnectionLoop][DONE]")
 
         logger.debug("[ConnectionLoop][create task]")
