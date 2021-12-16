@@ -183,15 +183,15 @@ class SchedulerProc(Process):
                 self.controller_q.put(self.cluster.scheduler.id)
             elif msg["op"] == "close":
                 self.__running = False
-                logger.debug(f"[SchedulerProc][close]")
+                logger.debug("[SchedulerProc][close]")
                 self.cluster.close()
             elif msg["op"] == "scaleZeroAndClose":
-                logger.debug(f"[SchedulerProc][scaling to 0]")
+                logger.debug("[SchedulerProc][scaling to 0]")
                 self.cluster.scale(jobs=0)
                 while len(self.cluster.worker_spec) > 0:
                     pass
                 self.__running = False
-                logger.debug(f"[SchedulerProc][close]")
+                logger.debug("[SchedulerProc][close]")
                 self.cluster.close()
             elif msg["op"] == "adapt":
                 self.cluster.adapt(
