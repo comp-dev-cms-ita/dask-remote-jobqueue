@@ -6,14 +6,13 @@ import asyncio
 import json
 import logging
 import os
-from time import sleep
+from multiprocessing import Process, Queue
 
 import asyncssh
 import dask.config
 import tornado.ioloop
 import tornado.web
 import yaml
-from dask.distributed import Status
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
@@ -37,6 +36,7 @@ class MyHTCondorJob(HTCondorJob):
         super().__init__(
             *args,
             **kwargs,
+            death_timeout=60 * 5,  # 5min
             python="source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh; conda activate cms-dodas; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/cms-dodas/bin/thisroot.sh; python3",
         )
 
@@ -117,18 +117,113 @@ if site:
 # from dask.distributed import LocalCluster
 # cluster = LocalCluster(n_workers=1, processes=False)
 
-cluster = HTCondorCluster(
-    job_cls=MyHTCondorJob,
-    cores=1,
-    memory="3 GB",
-    disk="1 GB",
-    scheduler_options=scheduler_options_vars,
-    job_extra=job_extra_vars,
-    # silence_logs="debug",
-    local_directory="./scratch",
-)
-
 logger.debug(f"[dask][config][{dask.config.config}]")
+
+
+class SchedulerProc(Process):
+    def __init__(self, sched_q: Queue, controller_q: Queue):
+        super().__init__()
+
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+        self.__running: bool = False
+        self.cluster = None
+        logger.debug(f"[SchedulerProc][dask][config][{dask.config.config}]")
+
+    def _worker_spec(self) -> dict:
+        workers = {}
+        for num, (worker_name, spec) in enumerate(self.cluster.worker_spec.items()):
+            logger.debug(f"[workerSpec][{num}][{worker_name}][{spec}]")
+            memory_limit = spec["options"].get("memory", "").lower()
+            if not memory_limit:
+                memory_limit = spec["options"].get("memory_limit", "")
+            if memory_limit:
+                if isinstance(memory_limit, str):
+                    if memory_limit.find("gb"):
+                        memory_limit = (
+                            int(memory_limit.replace("gb", "").strip()) * 10 ** 9
+                        )
+                elif not isinstance(memory_limit, int):
+                    memory_limit = -1
+                # See dask-labextension make_cluster_model
+            n_cores = spec["options"].get("cores", -1)
+            if n_cores == -1:
+                n_cores = spec["options"].get("nthreads", -1)
+            workers[worker_name] = {
+                "nthreads": n_cores,
+                "memory_limit": memory_limit,
+            }
+        return workers
+
+    def run(self):
+        self.cluster = HTCondorCluster(
+            job_cls=MyHTCondorJob,
+            cores=2,
+            memory="4 GB",
+            disk="1 GB",
+            scheduler_options=scheduler_options_vars,
+            job_extra=job_extra_vars,
+            # silence_logs="debug",
+            local_directory="./scratch",
+        )
+        self.__running = True
+        self.controller_q.put("READY")
+
+        while self.__running:
+            msg = self.sched_q.get()
+            logger.debug(f"[SchedulerProc][msg: {msg}]")
+            if msg["op"] == "job_script":
+                job_script = self.cluster.job_script()
+                logger.debug(f"[SchedulerProc][job_script][resp: {job_script}]")
+                self.controller_q.put(job_script)
+            elif msg["op"] == "sched_id":
+                logger.debug(
+                    f"[SchedulerProc][sched_id][resp: {self.cluster.scheduler.id}]"
+                )
+                self.controller_q.put(self.cluster.scheduler.id)
+            elif msg["op"] == "close":
+                self.__running = False
+                logger.debug("[SchedulerProc][close]")
+                self.cluster.close()
+            elif msg["op"] == "scaleZeroAndClose":
+                logger.debug("[SchedulerProc][scaling to 0]")
+                self.cluster.scale(jobs=0)
+                while len(self.cluster.worker_spec) > 0:
+                    pass
+                self.__running = False
+                logger.debug("[SchedulerProc][close]")
+                self.cluster.close()
+            elif msg["op"] == "adapt":
+                self.cluster.adapt(
+                    minimum_jobs=msg["minimum_jobs"],
+                    maximum_jobs=msg["maximum_jobs"],
+                )
+            elif msg["op"] == "scale_jobs":
+                self.cluster.scale(jobs=msg["num"])
+            elif msg["op"] == "scale_workers":
+                self.cluster.scale(n=msg["num"])
+            elif msg["op"] == "worker_spec":
+                specs = self._worker_spec()
+                logger.debug(f"[SchedulerProc][worker_spec][resp: {specs}]")
+                self.controller_q.put(specs)
+            elif msg["op"] == "logs":
+                # https://github.com/dask/distributed/blob/55ff8337e95a55abf9268c19342572a09e1066ac/distributed/deploy/cluster.py#L295
+                cluster_logs: str = self.cluster.get_logs(
+                    cluster=True, scheduler=False, workers=False
+                ).get("Cluster", "")
+                scheduler_logs: list[tuple] = self.cluster.scheduler.get_logs()
+                worker_logs: dict = self.cluster.scheduler.get_worker_logs()
+                nanny_logs: dict = self.cluster.scheduler.get_worker_logs(nanny=True)
+                self.controller_q.put(
+                    {
+                        "cluster_logs": cluster_logs,
+                        "scheduler_logs": scheduler_logs,
+                        "worker_logs": worker_logs,
+                        "nanny_logs": nanny_logs,
+                    }
+                )
+
+        logger.debug("[SchedulerProc][exit]")
 
 
 async def tunnel_scheduler():
@@ -176,9 +271,9 @@ async def tunnel_tornado():
     await forwarder.wait_closed()
 
 
-async def start_tornado():
-    logger.debug("start tornado web")
-    app = make_app()
+async def start_tornado(sched_q: Queue, controller_q: Queue):
+    logger.debug(f"start tornado web: 127.0.0.1:{tornado_port}")
+    app = make_app(sched_q, controller_q)
     app.listen(tornado_port, address="127.0.0.1")
 
 
@@ -190,25 +285,53 @@ class MainHandler(tornado.web.RequestHandler):
 
 
 class JobScriptHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
     def get(self):
-        self.write(cluster.job_script())
+        logger.debug("[JobScriptHandler][send][op: job_script]")
+        self.sched_q.put({"op": "job_script"})
+        res = self.controller_q.get()
+        logger.debug(f"[JobScriptHandler][res: {res}]")
+        self.write(res)
 
 
 class CloseHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
     def get(self):
-        cluster.close()
-        self.write("cluster closed")
+        logger.debug("[CloseHandler][send][op: close]")
+        self.sched_q.put({"op": "close"})
+        self.write("cluster is exiting")
+
+
+class ScaleZeroAndCloseHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
+    def get(self):
+        logger.debug("[ScaleZeroAndCloseHandler][send][op: scaleZeroAndClose]")
+        self.sched_q.put({"op": "scaleZeroAndClose"})
+        self.write("cluster is scaling down and exiting")
 
 
 class LogsHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
     async def get(self):
-        # https://github.com/dask/distributed/blob/55ff8337e95a55abf9268c19342572a09e1066ac/distributed/deploy/cluster.py#L295
-        cluster_logs: str = cluster.get_logs(
-            cluster=True, scheduler=False, workers=False
-        ).get("Cluster", "")
-        scheduler_logs: list[tuple] = cluster.scheduler.get_logs()
-        worker_logs: dict = await cluster.scheduler.get_worker_logs()
-        nanny_logs: dict = await cluster.scheduler.get_worker_logs(nanny=True)
+        logger.debug("[LogsHandler][send][op: logs]")
+        self.sched_q.put({"op": "logs"})
+        res = self.controller_q.get()
+        cluster_logs: str = res["cluster_logs"]
+        scheduler_logs: list[tuple] = res["scheduler_logs"]
+        worker_logs: dict = res["worker_logs"]
+        nanny_logs: dict = res["nanny_logs"]
         self.write(
             """<!DOCTYPE html>
             <html>
@@ -387,6 +510,10 @@ class LogsHandler(tornado.web.RequestHandler):
 
 
 class AdaptHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
     def get(self):
         minimum = self.get_argument("minimumJobs")
         maximum = self.get_argument("maximumJobs")
@@ -398,7 +525,12 @@ class AdaptHandler(tornado.web.RequestHandler):
             maximum = int(maximum)
         else:
             maximum = None
-        cluster.adapt(minimum_jobs=minimum, maximum_jobs=maximum)
+        logger.debug(
+            f"[AdaptHandler][send][op: adapt][minimum_jobs: {minimum}][maximum_jobs: {maximum}]"
+        )
+        self.sched_q.put(
+            {"op": "adapt", "minimum_jobs": minimum, "maximum_jobs": maximum}
+        )
         self.write(f"adapt jobs to min {minimum} and max {maximum}")
 
     def prepare(self):
@@ -406,9 +538,14 @@ class AdaptHandler(tornado.web.RequestHandler):
 
 
 class ScaleJobHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
     def get(self):
         num_jobs = int(self.get_argument("num"))
-        cluster.scale(jobs=num_jobs)
+        logger.debug(f"[ScaleJobHandler][send][op: scale_jobs][num: {num_jobs}]")
+        self.sched_q.put({"op": "scale_jobs", "num": num_jobs})
         self.write(f"scaled jobs to: {num_jobs}")
 
     def prepare(self):
@@ -416,14 +553,29 @@ class ScaleJobHandler(tornado.web.RequestHandler):
 
 
 class SchedulerIDHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
     def get(self):
-        self.write(cluster.scheduler.id)
+        logger.debug("[SchedulerIDHandler][send][op: sched_id]")
+        self.sched_q.put({"op": "sched_id"})
+        res = self.controller_q.get()
+        logger.debug(f"[SchedulerIDHandler][res: {res}]")
+        self.write(res)
 
 
 class ScaleWorkerHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
     def get(self):
         num_workers = int(self.get_argument("num"))
-        cluster.scale(n=num_workers)
+        logger.debug(
+            f"[ScaleWorkerHandler][send][op: scale_workers][num: {num_workers}]"
+        )
+        self.sched_q.put({"op": "scale_workers", "num": num_workers})
         self.write(f"scaled workers to: {num_workers}")
 
     def prepare(self):
@@ -431,6 +583,10 @@ class ScaleWorkerHandler(tornado.web.RequestHandler):
 
 
 class WorkerSpecHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
     def get(self):
         """Return a descriptive dictionary of worker specs.
 
@@ -473,54 +629,60 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
                     }
                 }
             }"""
-        workers = {}
-        for num, (worker_name, spec) in enumerate(cluster.worker_spec.items()):
-            logger.debug(f"[workerSpec][{num}][{worker_name}][{spec}]")
-            memory_limit = spec["options"].get("memory", "").lower()
-            if not memory_limit:
-                memory_limit = spec["options"].get("memory_limit", "")
-            if memory_limit:
-                if isinstance(memory_limit, str):
-                    if memory_limit.find("gb"):
-                        memory_limit = (
-                            int(memory_limit.replace("gb", "").strip()) * 10 ** 9
-                        )
-                elif not isinstance(memory_limit, int):
-                    memory_limit = -1
-                # See dask-labextension make_cluster_model
-            n_cores = spec["options"].get("cores", -1)
-            if n_cores == -1:
-                n_cores = spec["options"].get("nthreads", -1)
-            workers[worker_name] = {
-                "nthreads": n_cores,
-                "memory_limit": memory_limit,
-            }
-        self.write(json.dumps(workers))
+        logger.debug("[WorkerSpecHandler][send][op: worker_spec]")
+        self.sched_q.put({"op": "worker_spec"})
+        res = self.controller_q.get()
+        logger.debug(f"[WorkerSpecHandler][res: {res}]")
+        self.write(json.dumps(res))
 
 
-def make_app():
+def make_app(sched_q: Queue, controller_q: Queue):
     """Create scheduler support app"""
     return tornado.web.Application(
         [
             (r"/", MainHandler),
-            (r"/jobScript", JobScriptHandler),
-            (r"/adapt", AdaptHandler),
-            (r"/jobs", ScaleJobHandler),
-            (r"/workers", ScaleWorkerHandler),
-            (r"/workerSpec", WorkerSpecHandler),
-            (r"/schedulerID", SchedulerIDHandler),
-            (r"/close", CloseHandler),
-            (r"/logs", LogsHandler),
+            (
+                r"/jobScript",
+                JobScriptHandler,
+                dict(sched_q=sched_q, controller_q=controller_q),
+            ),
+            (r"/adapt", AdaptHandler, dict(sched_q=sched_q, controller_q=controller_q)),
+            (
+                r"/jobs",
+                ScaleJobHandler,
+                dict(sched_q=sched_q, controller_q=controller_q),
+            ),
+            (
+                r"/workers",
+                ScaleWorkerHandler,
+                dict(sched_q=sched_q, controller_q=controller_q),
+            ),
+            (
+                r"/workerSpec",
+                WorkerSpecHandler,
+                dict(sched_q=sched_q, controller_q=controller_q),
+            ),
+            (
+                r"/schedulerID",
+                SchedulerIDHandler,
+                dict(sched_q=sched_q, controller_q=controller_q),
+            ),
+            (r"/close", CloseHandler, dict(sched_q=sched_q, controller_q=controller_q)),
+            (
+                r"/scaleZeroAndClose",
+                ScaleZeroAndCloseHandler,
+                dict(sched_q=sched_q, controller_q=controller_q),
+            ),
+            (r"/logs", LogsHandler, dict(sched_q=sched_q, controller_q=controller_q)),
         ],
         debug=True,
     )
 
 
-async def main():
-    global cluster
-
+async def main(sched_q: Queue, controller_q: Queue):
     loop = asyncio.get_running_loop()
-    loop.create_task(start_tornado())
+
+    loop.create_task(start_tornado(sched_q, controller_q))
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
     loop.create_task(tunnel_tornado())
@@ -528,16 +690,26 @@ async def main():
     running = True
 
     while running:
-        await asyncio.sleep(6)
-        logging.debug(
-            f"Cluster: {cluster.status} - Scheduler: {cluster.scheduler.status}"
-        )
-        if cluster.scheduler.status in [Status.closed, Status.failed]:
-            running = False
-
-    del cluster
+        await asyncio.sleep(60)
+        logging.debug("Controller is Running...")
+        # sched_q.put({"op": "job_script"})
+        # sched_q.put({"op": "close"})
+        # break
 
 
 if __name__ == "__main__":
-    logger.debug("start main loop")
-    asyncio.run(main())
+    logger.debug("create queues")
+    sched_q: Queue = Queue()
+    controller_q: Queue = Queue()
+
+    logger.debug("create sched proc")
+    sched_proc = SchedulerProc(sched_q, controller_q)
+    logger.debug("start sched proc")
+    sched_proc.start()
+    res = controller_q.get()
+    logger.debug(f"sched proc res: {res}")
+    if res == "READY":
+        logger.debug("!!!!! sched proc ready !!!!!")
+
+    logger.debug("!!! start main loop !!!")
+    asyncio.run(main(sched_q, controller_q))

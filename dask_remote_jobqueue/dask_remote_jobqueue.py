@@ -394,58 +394,49 @@ class RemoteHTCondor:
         return cur_loop.run_until_complete(self._close())
 
     async def _close(self):
-        was_running = self.state == State.running
-        self.state = State.closing
+        if self.state != State.closing:
+            was_running = self.state == State.running
+            self.state = State.closing
 
-        self.scheduler_address: str = ""
-        self.dashboard_link: str = ""
+            self.scheduler_address: str = ""
+            self.dashboard_link: str = ""
 
-        await asyncio.sleep(1)
+            await asyncio.sleep(1.0)
 
-        if was_running:
-            # Scale to 0 the dask cluster
-            target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num=0"
-            logger.debug(f"[Scheduler][close][scale to 0][url: {target_url}]")
+            if was_running:
+                # Close the dask cluster
+                target_url = f"http://127.0.0.1:{self.tornado_port}/scaleZeroAndClose"
+                logger.debug(f"[Scheduler][close][url: {target_url}]")
 
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(target_url)
-                logger.debug(
-                    f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
-                )
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(target_url)
+                    logger.debug(
+                        f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
+                    )
 
-            await asyncio.sleep(6)
+                self.connection_process_q.put("STOP")
+                await asyncio.sleep(1.0)
 
-            # Close the dask cluster
-            target_url = f"http://127.0.0.1:{self.tornado_port}/close"
-            logger.debug(f"[Scheduler][close][url: {target_url}]")
+            # Remove the HTCondor dask scheduler job
+            cmd = "condor_rm {}.0".format(self.cluster_id)
+            logger.debug(cmd)
 
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(target_url)
-                logger.debug(
-                    f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
-                )
+            await asyncio.sleep(2.0)
 
-            self.connection_process_q.put("STOP")
-            await asyncio.sleep(1)
+            try:
+                cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+                logger.debug(str(cmd_out))
+            except Exception as ex:
+                raise ex
 
-        # Remove the HTCondor dask scheduler job
-        cmd = "condor_rm {}.0".format(self.cluster_id)
-        logger.debug(cmd)
+            if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(
+                self.cluster_id
+            ):
+                raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
-        await asyncio.sleep(4)
+            self.state = State.idle
 
-        try:
-            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
-            logger.debug(str(cmd_out))
-        except Exception as ex:
-            raise ex
-
-        if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(self.cluster_id):
-            raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
-
-        self.state = State.idle
-
-        await asyncio.sleep(1.0)
+            await asyncio.sleep(1.0)
 
     def scale(self, n: int):
         if self._connection_ok():
