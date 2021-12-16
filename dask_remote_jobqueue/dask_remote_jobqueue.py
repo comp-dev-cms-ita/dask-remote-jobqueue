@@ -431,8 +431,12 @@ class RemoteHTCondor:
         return cur_loop.run_until_complete(self._scale(n))
 
     async def _scale(self, n: int):
-        if not (await self._connection_ok()):
+        logger.debug("[Scheduler][scale][check connection...]")
+        connected = await self._connection_ok()
+        if not connected:
             raise Exception("Cluster is not reachable...")
+
+        logger.debug("[Scheduler][scale][connection OK!]")
 
         # Scale the cluster
         target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num={n}"
@@ -443,10 +447,13 @@ class RemoteHTCondor:
             logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     def adapt(self, minimum: int, maximum: int):
+        logger.debug("[Scheduler][adapt][check connection...]")
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
         connected = cur_loop.run_until_complete(self._connection_ok())
         if not connected:
             raise Exception("Cluster is not reachable...")
+
+        logger.debug("[Scheduler][adapt][connection OK!]")
 
         if self._connection_ok():
             target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
