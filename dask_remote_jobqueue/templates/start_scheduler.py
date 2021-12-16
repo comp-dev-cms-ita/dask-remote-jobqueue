@@ -182,6 +182,15 @@ class SchedulerProc(Process):
                 self.controller_q.put(self.cluster.scheduler.id)
             elif msg["op"] == "close":
                 self.__running = False
+                logger.debug(f"[SchedulerProc][close]")
+                self.cluster.close()
+            elif msg["op"] == "scaleZeroAndClose":
+                logger.debug(f"[SchedulerProc][scaling to 0]")
+                self.cluster.scale(jobs=0)
+                while len(self.cluster.worker_spec) > 0:
+                    pass
+                self.__running = False
+                logger.debug(f"[SchedulerProc][close]")
                 self.cluster.close()
             elif msg["op"] == "adapt":
                 self.cluster.adapt(
@@ -296,6 +305,17 @@ class CloseHandler(tornado.web.RequestHandler):
         logger.debug("[CloseHandler][send][op: close]")
         self.sched_q.put({"op": "close"})
         self.write("cluster is exiting")
+
+
+class ScaleZeroAndCloseHandler(tornado.web.RequestHandler):
+    def initialize(self, sched_q: Queue, controller_q: Queue):
+        self.sched_q: Queue = sched_q
+        self.controller_q: Queue = controller_q
+
+    def get(self):
+        logger.debug("[ScaleZeroAndCloseHandler][send][op: scaleZeroAndClose]")
+        self.sched_q.put({"op": "scaleZeroAndClose"})
+        self.write("cluster is scaling down and exiting")
 
 
 class LogsHandler(tornado.web.RequestHandler):
@@ -647,6 +667,11 @@ def make_app(sched_q: Queue, controller_q: Queue):
                 dict(sched_q=sched_q, controller_q=controller_q),
             ),
             (r"/close", CloseHandler, dict(sched_q=sched_q, controller_q=controller_q)),
+            (
+                r"/scaleZeroAndClose",
+                ScaleZeroAndCloseHandler,
+                dict(sched_q=sched_q, controller_q=controller_q),
+            ),
             (r"/logs", LogsHandler, dict(sched_q=sched_q, controller_q=controller_q)),
         ],
         debug=True,

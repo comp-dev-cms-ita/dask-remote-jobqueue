@@ -401,23 +401,11 @@ class RemoteHTCondor:
             self.scheduler_address: str = ""
             self.dashboard_link: str = ""
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(1.0)
 
             if was_running:
-                # Scale to 0 the dask cluster
-                target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num=0"
-                logger.debug(f"[Scheduler][close][scale to 0][url: {target_url}]")
-
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(target_url)
-                    logger.debug(
-                        f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
-                    )
-
-                await asyncio.sleep(14)
-
                 # Close the dask cluster
-                target_url = f"http://127.0.0.1:{self.tornado_port}/close"
+                target_url = f"http://127.0.0.1:{self.tornado_port}/scaleZeroAndClose"
                 logger.debug(f"[Scheduler][close][url: {target_url}]")
 
                 async with httpx.AsyncClient() as client:
@@ -427,13 +415,13 @@ class RemoteHTCondor:
                     )
 
                 self.connection_process_q.put("STOP")
-                await asyncio.sleep(1)
+                await asyncio.sleep(1.0)
 
             # Remove the HTCondor dask scheduler job
             cmd = "condor_rm {}.0".format(self.cluster_id)
             logger.debug(cmd)
 
-            await asyncio.sleep(4)
+            await asyncio.sleep(2.0)
 
             try:
                 cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
