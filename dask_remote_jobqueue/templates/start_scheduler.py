@@ -166,6 +166,7 @@ class SchedulerProc(Process):
             local_directory="./scratch",
         )
         self.__running = True
+        self.controller_q.put("READY")
 
         while self.__running:
             msg = self.sched_q.get()
@@ -664,17 +665,25 @@ async def main(sched_q: Queue, controller_q: Queue):
 
     while running:
         await asyncio.sleep(60)
-        logging.debug("Controller is Running")
+        logging.debug("Controller is Running...")
         # sched_q.put({"op": "job_script"})
         # sched_q.put({"op": "close"})
         # break
 
 
 if __name__ == "__main__":
+    logger.debug("create queues")
     sched_q: Queue = Queue()
     controller_q: Queue = Queue()
-    sched_proc = SchedulerProc(sched_q, controller_q)
-    sched_proc.start()
 
-    logger.debug("start main loop")
+    logger.debug("create sched proc")
+    sched_proc = SchedulerProc(sched_q, controller_q)
+    logger.debug("start sched proc")
+    sched_proc.start()
+    res = controller_q.get()
+    logger.debug(f"sched proc res: {res}")
+    if res == "READY":
+        logger.debug("!!!!! sched proc ready !!!!!")
+
+    logger.debug("!!! start main loop !!!")
     asyncio.run(main(sched_q, controller_q))
