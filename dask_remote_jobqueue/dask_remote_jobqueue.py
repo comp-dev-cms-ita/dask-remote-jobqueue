@@ -13,7 +13,6 @@ from enum import Enum
 from inspect import isawaitable
 from multiprocessing import Queue
 from random import randrange
-from subprocess import STDOUT, check_output
 
 import httpx
 import requests
@@ -405,7 +404,7 @@ class RemoteHTCondor:
 
             if was_running:
                 # Close the dask cluster
-                target_url = f"http://127.0.0.1:{self.tornado_port}/scaleZeroAndClose"
+                target_url = f"http://127.0.0.1:{self.tornado_port}/scaleZeroAndClose?clusterID={self.cluster_id}"
                 logger.debug(f"[Scheduler][close][url: {target_url}]")
 
                 async with httpx.AsyncClient() as client:
@@ -416,23 +415,6 @@ class RemoteHTCondor:
 
                 self.connection_process_q.put("STOP")
                 await asyncio.sleep(1.0)
-
-            # Remove the HTCondor dask scheduler job
-            cmd = "condor_rm {}.0".format(self.cluster_id)
-            logger.debug(cmd)
-
-            await asyncio.sleep(2.0)
-
-            try:
-                cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
-                logger.debug(str(cmd_out))
-            except Exception as ex:
-                raise ex
-
-            if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(
-                self.cluster_id
-            ):
-                raise Exception("Failed to hold job for scheduler: %s" % cmd_out)
 
             self.state = State.idle
 

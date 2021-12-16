@@ -7,6 +7,7 @@ import json
 import logging
 import os
 from multiprocessing import Process, Queue
+from subprocess import STDOUT, check_output
 
 import asyncssh
 import dask.config
@@ -168,6 +169,7 @@ class SchedulerProc(Process):
         )
         self.__running = True
         self.controller_q.put("READY")
+        clusterID: str = ""
 
         while self.__running:
             msg = self.sched_q.get()
@@ -187,6 +189,7 @@ class SchedulerProc(Process):
                 self.cluster.close()
             elif msg["op"] == "scaleZeroAndClose":
                 logger.debug("[SchedulerProc][scaling to 0]")
+                clusterID = msg["clusterID"]
                 self.cluster.scale(jobs=0)
                 while len(self.cluster.worker_spec) > 0:
                     pass
@@ -224,6 +227,20 @@ class SchedulerProc(Process):
                 )
 
         logger.debug("[SchedulerProc][exit]")
+
+        logger.debug(f"[SchedulerProc][rm cluster][{clusterID}]")
+        # Remove the HTCondor dask scheduler job
+        cmd = f"./job_rm {clusterID}.0"
+        logger.debug(f"[SchedulerProc][cmd: {cmd}]")
+
+        try:
+            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+            logger.debug(str(cmd_out))
+        except Exception as ex:
+            raise ex
+
+        if str(cmd_out) != "b'Job {}.0 marked for removal\\n'".format(clusterID):
+            raise Exception("Failed to remove scheduler job: %s" % cmd_out)
 
 
 async def tunnel_scheduler():
@@ -314,9 +331,13 @@ class ScaleZeroAndCloseHandler(tornado.web.RequestHandler):
         self.controller_q: Queue = controller_q
 
     def get(self):
+        clusterID = self.get_argument("clusterID")
         logger.debug("[ScaleZeroAndCloseHandler][send][op: scaleZeroAndClose]")
-        self.sched_q.put({"op": "scaleZeroAndClose"})
+        self.sched_q.put({"op": "scaleZeroAndClose", "clusterID": clusterID})
         self.write("cluster is scaling down and exiting")
+
+    def prepare(self):
+        logger.debug(self.request.arguments)
 
 
 class LogsHandler(tornado.web.RequestHandler):
