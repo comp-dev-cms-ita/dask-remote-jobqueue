@@ -230,7 +230,7 @@ class SchedulerProc(Process):
 
         logger.debug(f"[SchedulerProc][rm cluster][{clusterID}]")
         # Remove the HTCondor dask scheduler job
-        cmd = f"./job_rm {clusterID}.0"
+        cmd = f"./job_rm.sh {clusterID}.0"
         logger.debug(f"[SchedulerProc][cmd: {cmd}]")
 
         try:
