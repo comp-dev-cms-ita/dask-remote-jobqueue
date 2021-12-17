@@ -14,6 +14,7 @@ import dask.config
 import tornado.ioloop
 import tornado.web
 import yaml
+from dask.distributed import Status
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
@@ -167,6 +168,10 @@ class SchedulerProc(Process):
             # silence_logs="debug",
             local_directory="./scratch",
         )
+
+        while self.cluster.status != Status.running:
+            logger.debug(f"[SchedulerProc][status: {self.cluster.status}]")
+
         self.__running = True
         self.controller_q.put("READY")
         clusterID: str = ""
