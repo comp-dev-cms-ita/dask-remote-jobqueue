@@ -355,29 +355,29 @@ class RemoteHTCondor:
         logger.debug("[_connection_ok][Test connections...]")
 
         connection_checks = False
+        client = httpx.AsyncClient()
+
         for attempt in range(attempts):
             await asyncio.sleep(1)
             logger.debug(f"[_connection_ok][Test connections: attempt {attempt}]")
             try:
                 target_url = f"http://localhost:{self.tornado_port}"
                 logger.debug(f"[_connection_ok][check controller][{target_url}]")
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(target_url)
-                    logger.debug(
-                        f"[_connection_ok][check controller][resp({resp.status_code})]"
-                    )
-                    if resp.status_code != 200:
-                        logger.debug("[_connection_ok][Cannot connect to controller]")
+                resp = await client.get(target_url)
+                logger.debug(
+                    f"[_connection_ok][check controller][resp({resp.status_code})]"
+                )
+                if resp.status_code != 200:
+                    logger.debug("[_connection_ok][Cannot connect to controller]")
 
                 target_url = self.dashboard_link
                 logger.debug(f"[_connection_ok][check dashboard][{target_url}]")
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(target_url)
-                    logger.debug(
-                        f"[_connection_ok][check dashboard][resp({resp.status_code})]"
-                    )
-                    if resp.status_code != 200:
-                        logger.debug("[_connection_ok][Cannot connect to dashboard]")
+                resp = await client.get(target_url)
+                logger.debug(
+                    f"[_connection_ok][check dashboard][resp({resp.status_code})]"
+                )
+                if resp.status_code != 200:
+                    logger.debug("[_connection_ok][Cannot connect to dashboard]")
             except Exception as ex:
                 logger.debug(f"[_connection_ok][exception][{ex}]")
             else:
@@ -385,6 +385,8 @@ class RemoteHTCondor:
 
             if connection_checks:
                 break
+
+        await client.aclose()
 
         return connection_checks
 
