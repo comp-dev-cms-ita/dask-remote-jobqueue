@@ -267,8 +267,10 @@ class RemoteHTCondor:
 
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
         cur_loop.run_until_complete(self._start())
-        self.start_sched_process.join()
-        return cur_loop.run_until_complete(self._make_connections())
+        if self.state == State.start:
+            self.start_sched_process.join()
+
+            return cur_loop.run_until_complete(self._make_connections())
 
     async def _start(self):
         """Start the dask cluster scheduler.
@@ -291,6 +293,8 @@ class RemoteHTCondor:
                 self.scheduler_address = "Job submitted..."
 
             self.state = State.start
+
+            await asyncio.sleep(1.0)
 
     async def _make_connections(self):
         # Prepare the ssh tunnel
