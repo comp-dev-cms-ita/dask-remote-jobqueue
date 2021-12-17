@@ -8,6 +8,7 @@ import json
 # import math
 import os
 import weakref
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum
 from inspect import isawaitable
@@ -433,8 +434,12 @@ class RemoteHTCondor:
 
     def scale(self, n: int):
         logger.debug("[Scheduler][scale][check connection...]")
+
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-        connected = cur_loop.run_until_complete(self._connection_ok())
+        connected: bool = False
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            _, _, connected = cur_loop.run_in_executor(executor, self._connection_ok)
 
         if not connected:
             raise Exception("Cluster is not reachable...")
