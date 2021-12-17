@@ -380,6 +380,7 @@ class RemoteHTCondor:
                     logger.debug("[_connection_ok][Cannot connect to dashboard]")
             except Exception as ex:
                 logger.debug(f"[_connection_ok][exception][{ex}]")
+                continue
             else:
                 connection_checks = True
 
