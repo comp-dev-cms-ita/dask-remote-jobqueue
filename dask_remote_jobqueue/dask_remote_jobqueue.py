@@ -341,7 +341,8 @@ class RemoteHTCondor:
             f"[_make_connections][tornado_address: http://localhost:{self.tornado_port}]"
         )
 
-        for _ in range(6):
+        for attempt in range(6):
+            logger.debug(f"[_make_connections][attempt: {attempt}]")
             if await self._connection_ok(1):
                 break
             await asyncio.sleep(6)
