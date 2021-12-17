@@ -456,7 +456,7 @@ class RemoteHTCondor:
                         f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]"
                     )
 
-            return fun2call
+            return asyncio.create_task(fun2call())
 
         resp = requests.get(target_url)
         if resp.status_code != 200:
@@ -473,16 +473,13 @@ class RemoteHTCondor:
 
         logger.debug("[Scheduler][adapt][connection OK!]")
 
-        if self._connection_ok():
-            target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
-            logger.debug(
-                f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
-            )
-            resp = requests.get(target_url)
-            logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
-            if resp.status_code != 200:
-                raise Exception("Cluster adapt failed...")
+        target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
+        logger.debug(
+            f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
+        )
+        resp = requests.get(target_url)
+        logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
+        if resp.status_code != 200:
+            raise Exception("Cluster adapt failed...")
 
-            return AdaptiveProp(minimum, maximum)
-
-        raise Exception("Cluster is not reachable...")
+        return AdaptiveProp(minimum, maximum)
