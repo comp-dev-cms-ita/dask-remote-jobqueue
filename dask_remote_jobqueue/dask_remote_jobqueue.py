@@ -8,7 +8,6 @@ import json
 # import math
 import os
 import weakref
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum
 from inspect import isawaitable
@@ -433,19 +432,6 @@ class RemoteHTCondor:
             await asyncio.sleep(1.0)
 
     def scale(self, n: int):
-        logger.debug("[Scheduler][scale][check connection...]")
-
-        cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-        connected: bool = False
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            _, _, connected = cur_loop.run_in_executor(executor, self._connection_ok)
-
-        if not connected:
-            raise Exception("Cluster is not reachable...")
-
-        logger.debug("[Scheduler][scale][connection OK!]")
-
         # Scale the cluster
         target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num={n}"
         logger.debug(f"[Scheduler][scale][num: {n}][url: {target_url}]")
@@ -453,21 +439,38 @@ class RemoteHTCondor:
         if self.asynchronous:
 
             async def fun2call():
+                connected: bool = await self._connection_ok()
+                if not connected:
+                    raise Exception("Cluster is not reachable...")
+
+                logger.debug("[Scheduler][scale][connection OK!]")
+
                 async with httpx.AsyncClient() as client:
                     resp = await client.get(target_url)
                     if resp.status_code != 200:
                         raise Exception("Cluster scale failed...")
+
                     logger.debug(
                         f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]"
                     )
 
-            return asyncio.create_task(fun2call())
+            return fun2call()
 
-        resp = requests.get(target_url)
-        if resp.status_code != 200:
-            raise Exception("Cluster scale failed...")
+        else:
+            logger.debug("[Scheduler][scale][check connection...]")
+            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+            connected = cur_loop.run_until_complete(self._connection_ok())
 
-        logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
+            if not connected:
+                raise Exception("Cluster is not reachable...")
+
+            logger.debug("[Scheduler][scale][connection OK!]")
+
+            resp = requests.get(target_url)
+            if resp.status_code != 200:
+                raise Exception("Cluster scale failed...")
+
+            logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     def adapt(self, minimum: int, maximum: int):
         logger.debug("[Scheduler][adapt][check connection...]")
