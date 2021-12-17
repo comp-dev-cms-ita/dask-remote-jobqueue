@@ -197,7 +197,9 @@ class SchedulerProc(Process):
                 clusterID = msg["clusterID"]
                 self.cluster.scale(jobs=0)
                 while len(self.cluster.worker_spec) > 0:
-                    pass
+                    logger.debug(
+                        f"[SchedulerProc][workers to kill: {len(self.cluster.worker_spec)}]"
+                    )
                 self.__running = False
                 logger.debug("[SchedulerProc][close]")
                 self.cluster.close()
