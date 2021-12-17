@@ -8,6 +8,7 @@ import logging
 import os
 from multiprocessing import Process, Queue
 from subprocess import STDOUT, check_output
+from time import sleep
 
 import asyncssh
 import dask.config
@@ -234,6 +235,8 @@ class SchedulerProc(Process):
                 )
 
         logger.debug("[SchedulerProc][exit]")
+
+        sleep(14)
 
         logger.debug(f"[SchedulerProc][rm cluster][{clusterID}]")
         # Remove the HTCondor dask scheduler job
