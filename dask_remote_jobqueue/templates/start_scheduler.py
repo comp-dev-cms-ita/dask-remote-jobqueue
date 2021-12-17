@@ -8,12 +8,14 @@ import logging
 import os
 from multiprocessing import Process, Queue
 from subprocess import STDOUT, check_output
+from time import sleep
 
 import asyncssh
 import dask.config
 import tornado.ioloop
 import tornado.web
 import yaml
+from dask.distributed import Status
 from dask_jobqueue import HTCondorCluster
 from dask_jobqueue.htcondor import HTCondorJob
 
@@ -167,6 +169,10 @@ class SchedulerProc(Process):
             # silence_logs="debug",
             local_directory="./scratch",
         )
+
+        while self.cluster.status != Status.running:
+            logger.debug(f"[SchedulerProc][status: {self.cluster.status}]")
+
         self.__running = True
         self.controller_q.put("READY")
         clusterID: str = ""
@@ -192,7 +198,9 @@ class SchedulerProc(Process):
                 clusterID = msg["clusterID"]
                 self.cluster.scale(jobs=0)
                 while len(self.cluster.worker_spec) > 0:
-                    pass
+                    logger.debug(
+                        f"[SchedulerProc][workers to kill: {len(self.cluster.worker_spec)}]"
+                    )
                 self.__running = False
                 logger.debug("[SchedulerProc][close]")
                 self.cluster.close()
@@ -227,6 +235,8 @@ class SchedulerProc(Process):
                 )
 
         logger.debug("[SchedulerProc][exit]")
+
+        sleep(14)
 
         logger.debug(f"[SchedulerProc][rm cluster][{clusterID}]")
         # Remove the HTCondor dask scheduler job
