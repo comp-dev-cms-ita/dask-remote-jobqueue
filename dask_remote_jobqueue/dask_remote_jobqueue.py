@@ -168,7 +168,9 @@ class RemoteHTCondor:
                 f"[RemoteHTCondor][__await__][closure IN][state: {self.state}]"
             )
             if self.state == State.idle:
-                await self._start()
+                f = self.start()
+                if isawaitable(f):
+                    await f
             logger.debug(
                 f"[RemoteHTCondor][__await__][closure EXIT][state: {self.state}]"
             )
@@ -210,6 +212,7 @@ class RemoteHTCondor:
                             self.scheduler_address = "Job is hold..."
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
+                            self.start_sched_process.join()
                             self.scheduler_address = "Waiting for connection..."
 
                 elif self.state == State.scheduler_up:
@@ -268,6 +271,8 @@ class RemoteHTCondor:
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
         cur_loop.run_until_complete(self._start())
         if self.state == State.start:
+            self.state = State.waiting_connections
+
             self.start_sched_process.join()
 
             return cur_loop.run_until_complete(self._make_connections())
@@ -280,6 +285,8 @@ class RemoteHTCondor:
         scheduler job will be like a long running service.
         """
         if self.state == State.idle:
+            self.state = State.start
+
             self.start_sched_process.start()
 
             logger.debug("[_start][waiting for cluster id...]")
@@ -292,7 +299,7 @@ class RemoteHTCondor:
             if self.asynchronous:
                 self.scheduler_address = "Job submitted..."
 
-            self.state = State.start
+            await asyncio.sleep(0.33)
 
             await asyncio.sleep(1.0)
 
