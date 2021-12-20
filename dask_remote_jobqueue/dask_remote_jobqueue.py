@@ -301,6 +301,8 @@ class RemoteHTCondor:
 
             await asyncio.sleep(0.33)
 
+            await asyncio.sleep(1.0)
+
     async def _make_connections(self):
         # Prepare the ssh tunnel
         ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
