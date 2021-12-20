@@ -363,6 +363,7 @@ class RemoteHTCondor:
         await asyncio.sleep(2)
         self.state = State.running
 
+    @logger.catch
     async def _connection_ok(self, attempts: int = 6) -> bool:
         logger.debug("[_connection_ok][Test connections...]")
 
