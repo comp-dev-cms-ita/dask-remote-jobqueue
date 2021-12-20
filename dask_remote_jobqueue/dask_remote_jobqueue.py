@@ -212,13 +212,14 @@ class RemoteHTCondor:
                             self.scheduler_address = "Job is hold..."
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
+                            self.start_sched_process.join()
                             self.scheduler_address = "Waiting for connection..."
 
                 elif self.state == State.scheduler_up:
                     self.state = State.waiting_connections
                     logger.debug("[Scheduler][scheduler_info][make connections...]")
                     cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                    cur_loop.call_soon(self._make_connections)
+                    cur_loop.create_task(self._make_connections())
 
             return self._scheduler_info
 
@@ -270,8 +271,9 @@ class RemoteHTCondor:
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
         cur_loop.run_until_complete(self._start())
         if self.state == State.start:
-            self.start_sched_process.join()
             self.state = State.waiting_connections
+
+            self.start_sched_process.join()
 
             return cur_loop.run_until_complete(self._make_connections())
 
