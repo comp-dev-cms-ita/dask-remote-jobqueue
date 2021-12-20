@@ -215,7 +215,6 @@ class StartDaskScheduler(Process):
         self._copy_attributes()
         # Prepare HTCondor Job
         with tempfile.TemporaryDirectory() as tmpdirname:
-
             env = Environment(
                 loader=PackageLoader("dask_remote_jobqueue"),
                 autoescape=select_autoescape(),
