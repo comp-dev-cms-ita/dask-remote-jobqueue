@@ -452,14 +452,15 @@ class RemoteHTCondor:
 
                 logger.debug("[Scheduler][scale][connection OK!]")
 
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(target_url)
-                    if resp.status_code != 200:
-                        raise Exception("Cluster scale failed...")
+                client = httpx.AsyncClient()
+                resp = await client.get(target_url)
+                if resp.status_code != 200:
+                    raise Exception("Cluster scale failed...")
 
-                    logger.debug(
-                        f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]"
-                    )
+                logger.debug(
+                    f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]"
+                )
+                await client.aclose()
 
             return fun2call()
 
