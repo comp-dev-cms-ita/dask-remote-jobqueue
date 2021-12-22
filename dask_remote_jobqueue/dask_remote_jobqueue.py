@@ -503,6 +503,11 @@ class RemoteHTCondor:
         if self.state != State.running:
             raise Exception("Cluster is not completely up and running...")
 
+        target_url = f"http://127.0.0.1:{self.controller_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
+        logger.debug(
+            f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
+        )
+
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
 
         if self.asynchronous:
@@ -533,10 +538,6 @@ class RemoteHTCondor:
 
         logger.debug("[Scheduler][adapt][connection OK!]")
 
-        target_url = f"http://127.0.0.1:{self.controller_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
-        logger.debug(
-            f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
-        )
         resp = requests.get(target_url)
         logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
         if resp.status_code != 200:
