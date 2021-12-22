@@ -13,6 +13,7 @@ from enum import Enum
 from inspect import isawaitable
 from multiprocessing import Queue
 from random import randrange
+from subprocess import STDOUT, check_output
 
 import httpx
 import requests
@@ -28,6 +29,7 @@ class State(Enum):
     waiting_connections = 4
     running = 5
     closing = 6
+    error = 7
 
 
 @dataclass
@@ -58,6 +60,9 @@ class RemoteHTCondor:
 
         logger.debug("[RemoteHTCondor][init]")
 
+        # httpx client
+        self.httpx_client = httpx.AsyncClient()
+
         # Inner class status
         self.state: State = State.idle
         self.asynchronous: bool = asynchronous
@@ -66,7 +71,8 @@ class RemoteHTCondor:
         self.connection_process: "ConnectionLoop" = ConnectionLoop(
             self.connection_process_q
         )
-        self.start_sched_process_q: "Queue" = Queue()
+        self.start_
+        _process_q: "Queue" = Queue()
         self.start_sched_process: "StartDaskScheduler" = StartDaskScheduler(
             weakref.proxy(self), self.start_sched_process_q, os.environ
         )
@@ -78,11 +84,11 @@ class RemoteHTCondor:
         # Tunnel ports
         self.sched_port: int = randrange(20000, 40000)
         self.dash_port: int = randrange(20000, 40000)
-        self.tornado_port: int = randrange(20000, 40000)
+        self.controller_port: int = randrange(20000, 40000)
 
         logger.debug(f"generated -> sched_port: {self.sched_port}")
         logger.debug(f"generated -> dash_port: {self.dash_port}")
-        logger.debug(f"generated -> tornado_port: {self.tornado_port}")
+        logger.debug(f"generated -> controller_port: {self.controller_port}")
 
         # Custom ssh port for the tunnel
         self.ssh_url_port: int = ssh_url_port
@@ -154,7 +160,7 @@ class RemoteHTCondor:
 
     @property
     def logs_port(self) -> int:
-        return self.tornado_port
+        return self.controller_port
 
     def __await__(self):
         """Make the class awaitable.
@@ -192,6 +198,7 @@ class RemoteHTCondor:
             f = self.close()
             if isawaitable(f):
                 await f
+                await self.httpx_client.aclose()
 
     @property
     def scheduler_info(self) -> dict:
@@ -217,14 +224,28 @@ class RemoteHTCondor:
 
                 elif self.state == State.scheduler_up:
                     self.state = State.waiting_connections
+                    self.start_sched_process.join()
                     logger.debug("[Scheduler][scheduler_info][make connections...]")
                     cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
                     cur_loop.create_task(self._make_connections())
 
+                elif self.state == State.waiting_connections:
+                    logger.debug("[Scheduler][scheduler_info][waiting connections...]")
+                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+
+                    cur_task = cur_loop.create_task(self._connection_ok(1))
+
+                    def callback_waiting_connection(_fut):
+                        is_ok = cur_task.result()
+                        if is_ok:
+                            self.state = State.running
+
+                    cur_task.add_done_callback(callback_waiting_connection)
+
             return self._scheduler_info
 
         # Check controller
-        target_url = f"http://127.0.0.1:{self.tornado_port}/"
+        target_url = f"http://127.0.0.1:{self.controller_port}/"
         logger.debug(f"[Scheduler][scheduler_info][controller][url: {target_url}]")
 
         resp = requests.get(target_url)
@@ -243,7 +264,7 @@ class RemoteHTCondor:
         }
 
         # Get scheduler ID
-        target_url = f"http://127.0.0.1:{self.tornado_port}/schedulerID"
+        target_url = f"http://127.0.0.1:{self.controller_port}/schedulerID"
         logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
 
         resp = requests.get(target_url)
@@ -253,7 +274,7 @@ class RemoteHTCondor:
         self._scheduler_info["id"] = resp.text
 
         # Update the worker specs
-        target_url = f"http://127.0.0.1:{self.tornado_port}/workerSpec"
+        target_url = f"http://127.0.0.1:{self.controller_port}/workerSpec"
         logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
 
         resp = requests.get(target_url)
@@ -301,8 +322,6 @@ class RemoteHTCondor:
 
             await asyncio.sleep(0.33)
 
-            await asyncio.sleep(1.0)
-
     async def _make_connections(self):
         # Prepare the ssh tunnel
         ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
@@ -320,7 +339,7 @@ class RemoteHTCondor:
             token=self.token,
             sched_port=self.sched_port,
             dash_port=self.dash_port,
-            tornado_port=self.tornado_port,
+            controller_port=self.controller_port,
         )
         logger.debug("[_make_connections][Start connection process]")
         self.connection_process.start()
@@ -349,57 +368,86 @@ class RemoteHTCondor:
         )
         logger.debug(f"[_make_connections][dashboard_link: {self.dashboard_link}]")
         logger.debug(
-            f"[_make_connections][tornado_address: http://localhost:{self.tornado_port}]"
+            f"[_make_connections][controller_address: http://localhost:{self.controller_port}]"
         )
 
-        for attempt in range(6):
+        for attempt in range(10):
             logger.debug(f"[_make_connections][attempt: {attempt}]")
             if await self._connection_ok(1):
                 break
-            await asyncio.sleep(6)
+            await asyncio.sleep(6.0)
         else:
             raise Exception("Cannot check connections")
 
-        await asyncio.sleep(2)
         self.state = State.running
+        await asyncio.sleep(2.0)
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
+        logger.debug("[_connection_ok][run][Check job status]")
+        cmd = "condor_q {}.0 -json".format(self.cluster_id)
+        logger.debug(f"[_connection_ok][run][{cmd}]")
+
+        cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+        logger.debug(f"[_connection_ok][run][{cmd_out.decode('ascii')}]")
+
+        try:
+            classAd = json.loads(cmd_out)
+            logger.debug(f"[_connection_ok][run][classAd: {classAd}]")
+        except Exception as cur_ex:
+            logger.debug(f"[_connection_ok][run][{cur_ex}]")
+            ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
+            raise ex
+
+        job_status = classAd[0].get("JobStatus")
+        logger.debug(f"[_connection_ok][job_status: {job_status}]")
+        if job_status != 2:
+            self.state = State.error
+            self.scheduler_address = "Scheduler Job exited with errors..."
+            self.dashboard_link = ""
+
+            return False
+
         logger.debug("[_connection_ok][Test connections...]")
 
-        connection_checks = False
-        client = httpx.AsyncClient()
+        connection_checks = True
 
         for attempt in range(attempts):
-            await asyncio.sleep(1)
             logger.debug(f"[_connection_ok][Test connections: attempt {attempt}]")
             try:
-                target_url = f"http://localhost:{self.tornado_port}"
+                target_url = f"http://localhost:{self.controller_port}"
                 logger.debug(f"[_connection_ok][check controller][{target_url}]")
-                resp = await client.get(target_url)
+                resp = await self.httpx_client.get(target_url)
                 logger.debug(
                     f"[_connection_ok][check controller][resp({resp.status_code})]"
                 )
                 if resp.status_code != 200:
                     logger.debug("[_connection_ok][Cannot connect to controller]")
+            except Exception as ex:
+                logger.debug(f"[_connection_ok][check controller][exception][{ex}]")
+                connection_checks = connection_checks and False
+            else:
+                connection_checks = connection_checks and True
 
-                target_url = self.dashboard_link
-                logger.debug(f"[_connection_ok][check dashboard][{target_url}]")
-                resp = await client.get(target_url)
+            try:
+                logger.debug(
+                    f"[_connection_ok][check dashboard][{self.dashboard_link}]"
+                )
+                resp = await self.httpx_client.get(self.dashboard_link)
                 logger.debug(
                     f"[_connection_ok][check dashboard][resp({resp.status_code})]"
                 )
                 if resp.status_code != 200:
                     logger.debug("[_connection_ok][Cannot connect to dashboard]")
             except Exception as ex:
-                logger.debug(f"[_connection_ok][exception][{ex}]")
-                continue
+                logger.debug(f"[_connection_ok][check dashboard][exception][{ex}]")
+                connection_checks = connection_checks and False
             else:
-                connection_checks = True
+                connection_checks = connection_checks and True
 
             if connection_checks:
                 break
 
-        await client.aclose()
+            await asyncio.sleep(1)
 
         return connection_checks
 
@@ -422,16 +470,15 @@ class RemoteHTCondor:
 
             if was_running:
                 # Close the dask cluster
-                target_url = f"http://127.0.0.1:{self.tornado_port}/scaleZeroAndClose?clusterID={self.cluster_id}"
+                target_url = f"http://127.0.0.1:{self.controller_port}/scaleZeroAndClose?clusterID={self.cluster_id}"
                 logger.debug(f"[Scheduler][close][url: {target_url}]")
 
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(target_url)
-                    logger.debug(
-                        f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
-                    )
+                resp = await self.httpx_client.get(target_url)
+                logger.debug(
+                    f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
+                )
 
-                self.connection_process_q.put("STOP")
+                self.connection_process_q.put_nowait("STOP")
                 await asyncio.sleep(1.0)
 
             self.state = State.idle
@@ -440,59 +487,86 @@ class RemoteHTCondor:
 
     def scale(self, n: int):
         # Scale the cluster
-        target_url = f"http://127.0.0.1:{self.tornado_port}/jobs?num={n}"
+        if self.state != State.running:
+            raise Exception("Cluster is not completely up and running...")
+
+        target_url = f"http://127.0.0.1:{self.controller_port}/jobs?num={n}"
         logger.debug(f"[Scheduler][scale][num: {n}][url: {target_url}]")
 
         if self.asynchronous:
 
-            async def fun2call():
+            async def callScale():
                 connected: bool = await self._connection_ok()
                 if not connected:
                     raise Exception("Cluster is not reachable...")
 
                 logger.debug("[Scheduler][scale][connection OK!]")
 
-                client = httpx.AsyncClient()
-                resp = await client.get(target_url)
+                resp = await self.httpx_client.get(target_url)
+
                 if resp.status_code != 200:
                     raise Exception("Cluster scale failed...")
 
                 logger.debug(
                     f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]"
                 )
-                await client.aclose()
 
-            return fun2call()
+            return callScale()
 
-        else:
-            logger.debug("[Scheduler][scale][check connection...]")
-            cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-            connected = cur_loop.run_until_complete(self._connection_ok())
+        logger.debug("[Scheduler][scale][check connection...]")
+        cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+        connected = cur_loop.run_until_complete(self._connection_ok())
 
-            if not connected:
-                raise Exception("Cluster is not reachable...")
+        if not connected:
+            raise Exception("Cluster is not reachable...")
 
-            logger.debug("[Scheduler][scale][connection OK!]")
+        logger.debug("[Scheduler][scale][connection OK!]")
 
-            resp = requests.get(target_url)
-            if resp.status_code != 200:
-                raise Exception("Cluster scale failed...")
+        resp = requests.get(target_url)
+        if resp.status_code != 200:
+            raise Exception("Cluster scale failed...")
 
-            logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
+        logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
     def adapt(self, minimum: int, maximum: int):
-        logger.debug("[Scheduler][adapt][check connection...]")
+        if self.state != State.running:
+            raise Exception("Cluster is not completely up and running...")
+
+        target_url = f"http://127.0.0.1:{self.controller_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
+        logger.debug(
+            f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
+        )
+
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+
+        if self.asynchronous:
+
+            async def callAdapt():
+                connected: bool = await self._connection_ok()
+                if not connected:
+                    raise Exception("Cluster is not reachable...")
+
+                logger.debug("[Scheduler][adapt][connection OK!]")
+
+                resp = await self.httpx_client.get(target_url)
+                if resp.status_code != 200:
+                    raise Exception("Cluster adapt failed...")
+
+                logger.debug(
+                    f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]"
+                )
+
+            cur_loop.create_task(callAdapt())
+
+            return AdaptiveProp(minimum, maximum)
+
+        logger.debug("[Scheduler][adapt][check connection...]")
         connected = cur_loop.run_until_complete(self._connection_ok())
         if not connected:
             raise Exception("Cluster is not reachable...")
 
         logger.debug("[Scheduler][adapt][connection OK!]")
 
-        target_url = f"http://127.0.0.1:{self.tornado_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
-        logger.debug(
-            f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
-        )
         resp = requests.get(target_url)
         logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
         if resp.status_code != 200:
