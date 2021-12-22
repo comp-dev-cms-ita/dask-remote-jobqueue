@@ -214,6 +214,10 @@ class SchedulerProc(Process):
                     maximum_jobs=msg["maximum_jobs"],
                 )
             elif msg["op"] == "scale_jobs":
+                self.cluster.adapt(
+                    minimum_jobs=None,
+                    maximum_jobs=None,
+                )
                 self.cluster.scale(jobs=msg["num"])
             elif msg["op"] == "scale_workers":
                 self.cluster.scale(n=msg["num"])
