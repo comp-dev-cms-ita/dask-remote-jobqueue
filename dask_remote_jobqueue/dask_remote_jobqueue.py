@@ -503,7 +503,7 @@ class RemoteHTCondor:
                 logger.debug("[Scheduler][scale][connection OK!]")
 
                 resp = await self.httpx_client.get(target_url)
-  
+
                 if resp.status_code != 200:
                     raise Exception("Cluster scale failed...")
 
