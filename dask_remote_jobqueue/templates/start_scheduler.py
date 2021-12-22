@@ -5,6 +5,7 @@
 import asyncio
 import json
 import logging
+import math
 import os
 from multiprocessing import Process, Queue
 from subprocess import STDOUT, check_output
@@ -215,8 +216,8 @@ class SchedulerProc(Process):
                 )
             elif msg["op"] == "scale_jobs":
                 self.cluster.adapt(
-                    minimum_jobs=None,
-                    maximum_jobs=None,
+                    minimum_jobs=0,
+                    maximum_jobs=math.inf,
                 )
                 self.cluster.scale(jobs=msg["num"])
             elif msg["op"] == "scale_workers":
