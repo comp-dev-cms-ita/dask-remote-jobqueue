@@ -76,14 +76,14 @@ token = os.environ.get("JHUB_TOKEN")
 name = os.environ.get("JHUB_USER", "")
 sched_port = int(os.environ.get("SCHED_PORT", "42000"))
 dash_port = int(os.environ.get("DASH_PORT", "42001"))
-tornado_port = int(os.environ.get("TORNADO_PORT", "42002"))
+controller_port = int(os.environ.get("CONTROLLER_PORT", "42002"))
 
 logger.debug(f"name: {name}")
 logger.debug(f"token: {token}")
 
 ##
 # Local testing
-# tornado_port = 8181
+# controller_port = 8181
 
 site = None
 machine_ad_file = os.environ.get("_CONDOR_MACHINE_AD", "")
@@ -283,8 +283,8 @@ async def tunnel_dashboard():
     await forwarder.wait_closed()
 
 
-async def tunnel_tornado():
-    logger.debug("start tunnel tornado")
+async def tunnel_controller():
+    logger.debug("start tunnel controller")
     connection = await asyncssh.connect(
         "jhub.131.154.96.124.myip.cloud.infn.it",
         port=31022,
@@ -293,15 +293,15 @@ async def tunnel_tornado():
         known_hosts=None,
     )
     forwarder = await connection.forward_remote_port(
-        "127.0.0.1", tornado_port, "127.0.0.1", tornado_port
+        "127.0.0.1", controller_port, "127.0.0.1", controller_port
     )
     await forwarder.wait_closed()
 
 
-async def start_tornado(sched_q: Queue, controller_q: Queue):
-    logger.debug(f"start tornado web: 127.0.0.1:{tornado_port}")
+async def start_controller(sched_q: Queue, controller_q: Queue):
+    logger.debug(f"start controller web: 127.0.0.1:{controller_port}")
     app = make_app(sched_q, controller_q)
-    app.listen(tornado_port, address="127.0.0.1")
+    app.listen(controller_port, address="127.0.0.1")
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -713,10 +713,10 @@ def make_app(sched_q: Queue, controller_q: Queue):
 async def main(sched_q: Queue, controller_q: Queue):
     loop = asyncio.get_running_loop()
 
-    loop.create_task(start_tornado(sched_q, controller_q))
+    loop.create_task(start_controller(sched_q, controller_q))
     loop.create_task(tunnel_scheduler())
     loop.create_task(tunnel_dashboard())
-    loop.create_task(tunnel_tornado())
+    loop.create_task(tunnel_controller())
 
     running = True
 

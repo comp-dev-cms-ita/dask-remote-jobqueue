@@ -26,7 +26,7 @@ class ConnectionLoop(Process):
         token: str = "",
         sched_port: int = -1,
         dash_port: int = -1,
-        tornado_port: int = -1,
+        controller_port: int = -1,
     ):
         logger.debug(f"[ConnectionLoop][init][{ssh_url}][{ssh_url_port}]")
         super().__init__()
@@ -40,7 +40,7 @@ class ConnectionLoop(Process):
         self.token: str = token
         self.sched_port: int = sched_port
         self.dash_port: int = dash_port
-        self.tornado_port: int = tornado_port
+        self.controller_port: int = controller_port
         self.tasks: list = []
         self.queue: "Queue" = queue
 
@@ -66,6 +66,9 @@ class ConnectionLoop(Process):
                 password=self.token,
                 known_hosts=None,
             )
+
+            await asyncio.sleep(2.0)
+
             logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
             sched_conn = await self.connection.forward_local_port(
                 "127.0.0.1",
@@ -79,13 +82,17 @@ class ConnectionLoop(Process):
                 "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
             )
 
-            logger.debug(f"[ConnectionLoop][connect][tornado][{self.tornado_port}]")
-            tornado_port = await self.connection.forward_local_port(
-                "127.0.0.1",
-                self.tornado_port,
-                "127.0.0.1",
-                self.tornado_port,
+            logger.debug(
+                f"[ConnectionLoop][connect][controller][{self.controller_port}]"
             )
+            controller_port = await self.connection.forward_local_port(
+                "127.0.0.1",
+                self.controller_port,
+                "127.0.0.1",
+                self.controller_port,
+            )
+
+            await asyncio.sleep(2.0)
 
             if self.queue:
                 self.queue.put("OK")
@@ -94,8 +101,10 @@ class ConnectionLoop(Process):
             logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
             await dash_port.wait_closed()
             logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
-            await tornado_port.wait_closed()
-            logger.debug(f"[ConnectionLoop][closed][tornado][{self.tornado_port}]")
+            await controller_port.wait_closed()
+            logger.debug(
+                f"[ConnectionLoop][closed][controller][{self.controller_port}]"
+            )
 
             await self.connection.wait_closed()
 
@@ -103,8 +112,8 @@ class ConnectionLoop(Process):
             running: bool = True
             logger.debug(f"[ConnectionLoop][running: {running}]")
             while running:
-                await asyncio.sleep(1.0)
-                # logger.debug(f"[ConnectionLoop][running: {running}]")
+                await asyncio.sleep(14.0)
+                logger.debug(f"[ConnectionLoop][running: {running}]")
                 if not self.queue.empty():
                     res = self.queue.get_nowait()
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
@@ -146,7 +155,7 @@ class StartDaskScheduler(Process):
         self._token: str = ""
         self._sched_port: int = -1
         self._dash_port: int = -1
-        self._tornado_port: int = -1
+        self._controller_port: int = -1
         self._refresh_token: str = ""
         self._iam_server: str = ""
         self._client_id: str = ""
@@ -170,9 +179,9 @@ class StartDaskScheduler(Process):
         logger.debug(f"[StartDaskScheduler][copy of sched_port: {self._sched_port}]")
         self._dash_port = getattr(self._remoteHTCondor, "dash_port")
         logger.debug(f"[StartDaskScheduler][copy of dash_port: {self._dash_port}]")
-        self._tornado_port = getattr(self._remoteHTCondor, "tornado_port")
+        self._controller_port = getattr(self._remoteHTCondor, "controller_port")
         logger.debug(
-            f"[StartDaskScheduler][copy of tornado_port: {self._tornado_port}]"
+            f"[StartDaskScheduler][copy of controller_port: {self._controller_port}]"
         )
         self._refresh_token = getattr(self._remoteHTCondor, "refresh_token")
         logger.debug(
@@ -242,7 +251,7 @@ class StartDaskScheduler(Process):
                         token=self._token,
                         sched_port=self._sched_port,
                         dash_port=self._dash_port,
-                        tornado_port=self._tornado_port,
+                        controller_port=self._controller_port,
                         refresh_token=self._refresh_token,
                         iam_server=self._iam_server,
                         client_id=self._client_id,
@@ -330,7 +339,7 @@ class StartDaskScheduler(Process):
                 raise ex
 
         self._queue.put_nowait("SCHEDULERJOB==RUNNING")
-        sleep(2.0)
+
         logger.debug(
             f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> {job_status}]"
         )
