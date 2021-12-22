@@ -29,6 +29,7 @@ class State(Enum):
     waiting_connections = 4
     running = 5
     closing = 6
+    error = 7
 
 
 @dataclass
@@ -397,6 +398,10 @@ class RemoteHTCondor:
 
         job_status = classAd[0].get("JobStatus")
         logger.debug(f"[_connection_ok][job_status: {job_status}]")
+        if job_status != 2:
+            self.state = State.error
+            self.scheduler_address = "Scheduler Job exited with errors..."
+            return False
 
         logger.debug("[_connection_ok][Test connections...]")
 
