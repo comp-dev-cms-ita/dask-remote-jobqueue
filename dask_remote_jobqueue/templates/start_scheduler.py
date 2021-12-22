@@ -132,6 +132,7 @@ class SchedulerProc(Process):
         self.controller_q: Queue = controller_q
         self.__running: bool = False
         self.cluster = None
+        self.adaptive = None
         logger.debug(f"[SchedulerProc][dask][config][{dask.config.config}]")
 
     def _worker_spec(self) -> dict:
@@ -210,17 +211,18 @@ class SchedulerProc(Process):
                 logger.debug(
                     f"[SchedulerProc][adapt {msg['minimum_jobs']}-{msg['maximum_jobs']}]"
                 )
-                self.cluster.adapt(
+                self.adaptive = self.cluster.adapt(
                     minimum_jobs=msg["minimum_jobs"],
                     maximum_jobs=msg["maximum_jobs"],
                 )
             elif msg["op"] == "scale_jobs":
-                self.cluster.adapt(
-                    minimum_jobs=0,
-                    maximum_jobs=math.inf,
-                )
+                logger.debug(f"[SchedulerProc][scale to {msg['num']} jobs]")
+                if self.adaptive:
+                    self.adaptive.stop()
+                    self.adaptive = None
                 self.cluster.scale(jobs=msg["num"])
             elif msg["op"] == "scale_workers":
+                logger.debug(f"[SchedulerProc][scale to {msg['num']} workers]")
                 self.cluster.scale(n=msg["num"])
             elif msg["op"] == "worker_spec":
                 specs = self._worker_spec()
