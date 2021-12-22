@@ -172,6 +172,7 @@ class SchedulerProc(Process):
 
         while self.cluster.status != Status.running:
             logger.debug(f"[SchedulerProc][status: {self.cluster.status}]")
+            sleep(1)
 
         self.__running = True
         self.controller_q.put("READY")
@@ -721,7 +722,7 @@ async def main(sched_q: Queue, controller_q: Queue):
     running = True
 
     while running:
-        await asyncio.sleep(60)
+        await asyncio.sleep(14)
         logging.debug("Controller is Running...")
         # sched_q.put({"op": "job_script"})
         # sched_q.put({"op": "close"})
