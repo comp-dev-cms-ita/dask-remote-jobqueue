@@ -206,6 +206,7 @@ class SchedulerProc(Process):
                 logger.debug("[SchedulerProc][close]")
                 self.cluster.close()
             elif msg["op"] == "adapt":
+                logger.debug(f"[SchedulerProc][adapt {msg['minimum_jobs']}-{msg['maximum_jobs']]}")
                 self.cluster.adapt(
                     minimum_jobs=msg["minimum_jobs"],
                     maximum_jobs=msg["maximum_jobs"],
