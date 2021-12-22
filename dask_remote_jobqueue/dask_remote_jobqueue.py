@@ -13,6 +13,7 @@ from enum import Enum
 from inspect import isawaitable
 from multiprocessing import Queue
 from random import randrange
+from subprocess import STDOUT, check_output
 
 import httpx
 import requests
@@ -379,6 +380,24 @@ class RemoteHTCondor:
         await asyncio.sleep(2.0)
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
+        logger.debug("[_connection_ok][run][Check job status]")
+        cmd = "condor_q {}.0 -json".format(self._cluster_id)
+        logger.debug(f"[_connection_ok][run][{cmd}]")
+
+        cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+        logger.debug(f"[_connection_ok][run][{cmd_out.decode('ascii')}]")
+
+        try:
+            classAd = json.loads(cmd_out)
+            logger.debug(f"[_connection_ok][run][classAd: {classAd}]")
+        except Exception as cur_ex:
+            logger.debug(f"[_connection_ok][run][{cur_ex}]")
+            ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
+            raise ex
+
+        job_status = classAd[0].get("JobStatus")
+        logger.debug(f"[_connection_ok][job_status: {job_status}]")
+
         logger.debug("[_connection_ok][Test connections...]")
 
         connection_checks = True
