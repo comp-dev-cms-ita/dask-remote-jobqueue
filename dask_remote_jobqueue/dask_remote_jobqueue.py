@@ -467,7 +467,7 @@ class RemoteHTCondor:
 
         if self.asynchronous:
 
-            async def fun2call():
+            async def callScale():
                 connected: bool = await self._connection_ok()
                 if not connected:
                     raise Exception("Cluster is not reachable...")
@@ -482,7 +482,7 @@ class RemoteHTCondor:
                     f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]"
                 )
 
-            return fun2call()
+            return callScale()
 
         logger.debug("[Scheduler][scale][check connection...]")
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
@@ -503,8 +503,30 @@ class RemoteHTCondor:
         if self.state != State.running:
             raise Exception("Cluster is not completely up and running...")
 
-        logger.debug("[Scheduler][adapt][check connection...]")
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+
+        if self.asynchronous:
+
+            async def callAdapt():
+                connected: bool = await self._connection_ok()
+                if not connected:
+                    raise Exception("Cluster is not reachable...")
+
+                logger.debug("[Scheduler][adapt][connection OK!]")
+
+                resp = await self.httpx_client.get(target_url)
+                if resp.status_code != 200:
+                    raise Exception("Cluster adapt failed...")
+
+                logger.debug(
+                    f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]"
+                )
+
+            cur_loop.create_task(callAdapt())
+
+            return AdaptiveProp(minimum, maximum)
+
+        logger.debug("[Scheduler][adapt][check connection...]")
         connected = cur_loop.run_until_complete(self._connection_ok())
         if not connected:
             raise Exception("Cluster is not reachable...")
