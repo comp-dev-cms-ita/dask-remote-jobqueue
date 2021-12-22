@@ -71,7 +71,8 @@ class RemoteHTCondor:
         self.connection_process: "ConnectionLoop" = ConnectionLoop(
             self.connection_process_q
         )
-        self.start_sched_process_q: "Queue" = Queue()
+        self.start_
+        _process_q: "Queue" = Queue()
         self.start_sched_process: "StartDaskScheduler" = StartDaskScheduler(
             weakref.proxy(self), self.start_sched_process_q, os.environ
         )
@@ -218,6 +219,7 @@ class RemoteHTCondor:
                             self.scheduler_address = "Job is hold..."
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
+                            self.start_sched_process.join()
                             self.scheduler_address = "Waiting for connection..."
 
                 elif self.state == State.scheduler_up:
@@ -501,6 +503,7 @@ class RemoteHTCondor:
                 logger.debug("[Scheduler][scale][connection OK!]")
 
                 resp = await self.httpx_client.get(target_url)
+  
                 if resp.status_code != 200:
                     raise Exception("Cluster scale failed...")
 
