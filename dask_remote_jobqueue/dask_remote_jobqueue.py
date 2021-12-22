@@ -401,6 +401,8 @@ class RemoteHTCondor:
         if job_status != 2:
             self.state = State.error
             self.scheduler_address = "Scheduler Job exited with errors..."
+            self.dashboard_link = ""
+
             return False
 
         logger.debug("[_connection_ok][Test connections...]")
