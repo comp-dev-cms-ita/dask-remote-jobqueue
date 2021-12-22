@@ -361,7 +361,7 @@ class RemoteHTCondor:
             f"[_make_connections][controller_address: http://localhost:{self.controller_port}]"
         )
 
-        for attempt in range(6):
+        for attempt in range(10):
             logger.debug(f"[_make_connections][attempt: {attempt}]")
             if await self._connection_ok(1):
                 break
