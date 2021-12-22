@@ -71,8 +71,7 @@ class RemoteHTCondor:
         self.connection_process: "ConnectionLoop" = ConnectionLoop(
             self.connection_process_q
         )
-        self.start_
-        _process_q: "Queue" = Queue()
+        self.start_process_q: "Queue" = Queue()
         self.start_sched_process: "StartDaskScheduler" = StartDaskScheduler(
             weakref.proxy(self), self.start_sched_process_q, os.environ
         )
