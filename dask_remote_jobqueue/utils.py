@@ -43,15 +43,24 @@ class ConnectionLoop(Process):
         self.controller_port: int = controller_port
         self.tasks: list = []
         self.queue: "Queue" = queue
+        self.f_sched_conn: Union[asyncssh.SSHListener, None] = None
+        self.f_dash_port: Union[asyncssh.SSHListener, None] = None
+        self.f_controller_port: Union[asyncssh.SSHListener, None] = None
 
     def stop(self):
         self.loop = asyncio.get_running_loop()
 
-        async def _close_connection(connection):
-            logger.debug(f"[ConnectionLoop][close connection {connection}]")
-            connection.close()
+        async def _close_connection():
+            logger.debug(f"[ConnectionLoop][close connection {self.f_sched_conn}]")
+            self.f_sched_conn.close()
+            logger.debug(f"[ConnectionLoop][close connection {self.f_dash_port}]")
+            self.f_dash_port.close()
+            logger.debug(f"[ConnectionLoop][close connection {self.f_controller_port}]")
+            self.f_controller_port.close()
+            logger.debug(f"[ConnectionLoop][close connection {self.connection}]")
+            self.connection.close()
 
-        self.loop.create_task(_close_connection(self.connection))
+        self.loop.create_task(_close_connection())
 
     def run(self):
         async def forward_connection():
@@ -66,11 +75,10 @@ class ConnectionLoop(Process):
                 password=self.token,
                 known_hosts=None,
             )
-
-            await asyncio.sleep(2.0)
+            self.connection.set_keepalive(interval=6.0, count_max=6)
 
             logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
-            sched_conn = await self.connection.forward_local_port(
+            self.f_sched_conn = await self.connection.forward_local_port(
                 "127.0.0.1",
                 self.sched_port,
                 "127.0.0.1",
@@ -78,30 +86,28 @@ class ConnectionLoop(Process):
             )
 
             logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
-            dash_port = await self.connection.forward_local_port(
+            self.f_dash_port = await self.connection.forward_local_port(
                 "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
             )
 
             logger.debug(
                 f"[ConnectionLoop][connect][controller][{self.controller_port}]"
             )
-            controller_port = await self.connection.forward_local_port(
+            self.f_controller_port = await self.connection.forward_local_port(
                 "127.0.0.1",
                 self.controller_port,
                 "127.0.0.1",
                 self.controller_port,
             )
 
-            await asyncio.sleep(2.0)
-
             if self.queue:
                 self.queue.put("OK")
 
-            await sched_conn.wait_closed()
+            await self.f_sched_conn.wait_closed()
             logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
-            await dash_port.wait_closed()
+            await self.f_dash_port.wait_closed()
             logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
-            await controller_port.wait_closed()
+            await self.f_controller_port.wait_closed()
             logger.debug(
                 f"[ConnectionLoop][closed][controller][{self.controller_port}]"
             )
