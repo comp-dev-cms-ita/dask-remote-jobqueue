@@ -4,7 +4,8 @@ import os
 import tempfile
 import weakref
 from typing import Union
-from multiprocessing import Process, Queue
+from multiprocessing import Process
+from queue import Queue, Empty
 from subprocess import STDOUT, check_output
 from time import sleep
 
@@ -120,7 +121,7 @@ class ConnectionLoop(Process):
             while running:
                 await asyncio.sleep(14.0)
                 logger.debug(f"[ConnectionLoop][running: {running}]")
-                if not self.queue.empty():
+                try:
                     res = self.queue.get_nowait()
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
                     if res and res == "STOP":
@@ -130,6 +131,8 @@ class ConnectionLoop(Process):
                         for i in reversed(range(6)):
                             logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
                             await asyncio.sleep(1)
+                except Empty:
+                    pass
 
             logger.debug("[ConnectionLoop][DONE]")
 
@@ -309,7 +312,7 @@ class StartDaskScheduler(Process):
 
         # While job is idle or hold
         while job_status in [1, 5]:
-            sleep(1)
+            sleep(6)
 
             logger.debug("[StartDaskScheduler][run][Check job status]")
             cmd = "condor_q {}.0 -json".format(self._cluster_id)
@@ -332,13 +335,13 @@ class StartDaskScheduler(Process):
                 logger.debug(
                     f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still idle]"
                 )
-                self._queue.put("SCHEDULERJOB==IDLE")
+                self._queue.put_nowait("SCHEDULERJOB==IDLE")
                 continue
             if job_status == 5:
                 logger.debug(
                     f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> still hold]"
                 )
-                self._queue.put("SCHEDULERJOB==HOLD")
+                self._queue.put_nowait("SCHEDULERJOB==HOLD")
                 continue
             if job_status != 2:
                 ex = Exception("Scheduler job in error {}".format(job_status))

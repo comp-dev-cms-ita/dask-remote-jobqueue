@@ -12,7 +12,7 @@ import weakref
 from dataclasses import dataclass
 from enum import Enum
 from inspect import isawaitable
-from multiprocessing import Queue
+from queue import Queue, Empty
 from random import randrange
 from subprocess import STDOUT, check_output
 
@@ -233,8 +233,8 @@ class RemoteHTCondor:
                     logger.debug(
                         "[Scheduler][scheduler_info][waiting for scheduler update...]"
                     )
-                    if not self.start_sched_process_q.empty():
-                        msg = self.start_sched_process_q.get()
+                    try:
+                        msg = self.start_sched_process_q.get_nowait()
                         if msg == "SCHEDULERJOB==IDLE":
                             self.scheduler_address = "Job is idle..."
                         elif msg == "SCHEDULERJOB==HOLD":
@@ -242,6 +242,8 @@ class RemoteHTCondor:
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
                             self.scheduler_address = "Waiting for connection..."
+                    except Empty:
+                        pass
 
                 elif self.state == State.scheduler_up:
                     logger.debug("[Scheduler][scheduler_info][make connections...]")
@@ -254,7 +256,6 @@ class RemoteHTCondor:
                         is_ok = await self._connection_ok()
                         if is_ok:
                             self.state = State.running
-                            self.scheduler_address = "Connection established..."
                         else:
                             self.state = State.error
                             self.scheduler_address = "Error on connection..."
@@ -339,9 +340,6 @@ class RemoteHTCondor:
             self.start_sched_process.start()
 
             logger.debug("[_start][waiting for cluster id...]")
-            while self.start_sched_process_q.empty():
-                pass
-            logger.debug("[_start][get cluster id]")
             self.cluster_id = self.start_sched_process_q.get()
             logger.debug(f"[_start][cluster_id: {self.cluster_id}")
 
@@ -381,9 +379,6 @@ class RemoteHTCondor:
                 logger.debug("[_make_connections][already started...]")
 
             logger.debug("[_make_connections][Wait for queue...]")
-            while self.connection_process_q.empty():
-                pass
-            logger.debug("[_make_connections][Check connection_q response]")
             started_tunnels = self.connection_process_q.get()
             logger.debug(f"[_make_connections][response: {started_tunnels}]")
             if started_tunnels != "OK":
