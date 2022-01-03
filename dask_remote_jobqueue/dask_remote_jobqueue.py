@@ -318,7 +318,11 @@ class RemoteHTCondor:
 
         cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
         cur_loop.run_until_complete(self._start())
-        self.start_sched_process.join()
+
+        msg = self.start_sched_process_q.get()
+        while msg != "SCHEDULERJOB==RUNNING":
+            msg = self.start_sched_process_q.get()
+
         self.state = State.scheduler_up
         return cur_loop.run_until_complete(self._make_connections())
 
