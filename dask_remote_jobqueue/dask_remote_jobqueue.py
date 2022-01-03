@@ -180,6 +180,10 @@ class RemoteHTCondor:
     def logs_port(self) -> int:
         return self.controller_port
 
+    @property
+    def controller_address(self) -> str:
+        return f"http://localhost:{self.controller_port}"
+
     def __await__(self):
         """Make the class awaitable.
 
@@ -509,7 +513,7 @@ class RemoteHTCondor:
                     f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
                 )
 
-                self.connection_process_q.put_nowait("STOP")
+                self.connection_process_q.put("STOP")
 
             self.state = State.idle
 
