@@ -81,9 +81,9 @@ class RemoteHTCondor:
         self.dashboard_address: str = ""
 
         # Tunnel ports
-        self.sched_port: int = randrange(20000, 40000)
-        self.dash_port: int = randrange(20000, 40000)
-        self.controller_port: int = randrange(20000, 40000)
+        self.sched_port: int = randrange(20000, 27000)
+        self.dash_port: int = randrange(27000, 34000)
+        self.controller_port: int = randrange(34000, 40000)
 
         logger.debug(f"generated -> sched_port: {self.sched_port}")
         logger.debug(f"generated -> dash_port: {self.dash_port}")
