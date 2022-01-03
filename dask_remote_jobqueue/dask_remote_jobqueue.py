@@ -340,7 +340,14 @@ class RemoteHTCondor:
             self.start_sched_process.start()
 
             logger.debug("[_start][waiting for cluster id...]")
-            self.cluster_id = self.start_sched_process_q.get()
+            msg = ""
+            while not msg:
+                try:
+                    msg = self.start_sched_process_q.get_nowait()
+                except Empty:
+                    pass
+
+            self.cluster_id = msg
             logger.debug(f"[_start][cluster_id: {self.cluster_id}")
 
             if self.asynchronous:
@@ -379,7 +386,13 @@ class RemoteHTCondor:
                 logger.debug("[_make_connections][already started...]")
 
             logger.debug("[_make_connections][Wait for queue...]")
-            started_tunnels = self.connection_process_q.get()
+            started_tunnels = ""
+            while not started_tunnels:
+                try:
+                    started_tunnels = self.connection_process_q.get_nowait()
+                except Empty:
+                    pass
+
             logger.debug(f"[_make_connections][response: {started_tunnels}]")
             if started_tunnels != "OK":
                 raise Exception("Cannot make any tunnel...")
