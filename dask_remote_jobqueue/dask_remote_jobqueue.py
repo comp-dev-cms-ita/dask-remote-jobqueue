@@ -234,7 +234,7 @@ class RemoteHTCondor:
                         "[Scheduler][scheduler_info][waiting for scheduler update...]"
                     )
                     try:
-                        msg = self.start_sched_process_q.get_nowait()
+                        msg = self.start_sched_process_q.get(timeout=0.42)
                         if msg == "SCHEDULERJOB==IDLE":
                             self.scheduler_address = "Job is idle..."
                         elif msg == "SCHEDULERJOB==HOLD":
@@ -343,7 +343,7 @@ class RemoteHTCondor:
             msg = ""
             while not msg:
                 try:
-                    msg = self.start_sched_process_q.get_nowait()
+                    msg = self.start_sched_process_q.get(timeout=0.42)
                 except Empty:
                     logger.debug("[_start][queue was empty...]")
                 await asyncio.sleep(1.0)
@@ -390,7 +390,7 @@ class RemoteHTCondor:
             started_tunnels = ""
             while not started_tunnels:
                 try:
-                    started_tunnels = self.connection_process_q.get_nowait()
+                    started_tunnels = self.connection_process_q.get(timeout=0.42)
                 except Empty:
                     logger.debug("[_make_connections][queue was empty...]")
                 await asyncio.sleep(1.0)
