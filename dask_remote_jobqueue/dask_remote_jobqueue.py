@@ -223,20 +223,28 @@ class RemoteHTCondor:
                 elif self.state == State.scheduler_up:
                     logger.debug("[Scheduler][scheduler_info][make connections...]")
                     cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                    cur_loop.create_task(self._make_connections())
+                    connection_done_event = asyncio.Event()
+                    cur_loop.create_task(self._make_connections(connection_done_event))
 
-                elif self.state == State.waiting_connections:
-                    logger.debug("[Scheduler][scheduler_info][waiting connections...]")
-                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-
-                    cur_task = cur_loop.create_task(self._connection_ok(1))
-
-                    def callback_waiting_connection(_fut):
-                        is_ok = cur_task.result()
+                    async def callback_waiting_connection(connection_done_event):
+                        await connection_done_event.wait()
+                        is_ok = await self._connection_ok()
                         if is_ok:
                             self.state = State.running
+                            self.scheduler_address = "Connection established..."
+                        else:
+                            self.state = State.error
+                            self.scheduler_address = "Error on connection..."
+                            self.dashboard_link = ""
 
-                    cur_task.add_done_callback(callback_waiting_connection)
+                    cur_loop.create_task(
+                        callback_waiting_connection(connection_done_event)
+                    )
+
+                elif self.state == State.waiting_connections:
+                    logger.debug(
+                        "[Scheduler][scheduler_info][waiting for connection...]"
+                    )
 
             return self._scheduler_info
 
@@ -315,7 +323,7 @@ class RemoteHTCondor:
 
             await asyncio.sleep(0.33)
 
-    async def _make_connections(self):
+    async def _make_connections(self, connection_done_event: asyncio.Event = None):
         if self.state == State.scheduler_up:
             self.state = State.waiting_connections
 
@@ -381,7 +389,9 @@ class RemoteHTCondor:
                 raise Exception("Cannot check connections")
 
             self.state = State.running
-            await asyncio.sleep(2.0)
+
+            if connection_done_event:
+                connection_done_event.set()
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
         logger.debug("[_connection_ok][run][Check job status]")
