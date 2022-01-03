@@ -6,6 +6,7 @@ import weakref
 from typing import Union
 from multiprocessing import Process, Queue
 from subprocess import STDOUT, check_output
+from time import sleep
 
 import asyncssh
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -308,6 +309,8 @@ class StartDaskScheduler(Process):
 
         # While job is idle or hold
         while job_status in [1, 5]:
+            sleep(1)
+
             logger.debug("[StartDaskScheduler][run][Check job status]")
             cmd = "condor_q {}.0 -json".format(self._cluster_id)
             logger.debug(f"[StartDaskScheduler][run][{cmd}]")
