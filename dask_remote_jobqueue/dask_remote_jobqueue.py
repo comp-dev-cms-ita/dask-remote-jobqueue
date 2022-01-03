@@ -345,7 +345,8 @@ class RemoteHTCondor:
                 try:
                     msg = self.start_sched_process_q.get_nowait()
                 except Empty:
-                    pass
+                    logger.debug("[_start][queue was empty...]")
+                await asyncio.sleep(1.0)
 
             self.cluster_id = msg
             logger.debug(f"[_start][cluster_id: {self.cluster_id}")
@@ -391,7 +392,8 @@ class RemoteHTCondor:
                 try:
                     started_tunnels = self.connection_process_q.get_nowait()
                 except Empty:
-                    pass
+                    logger.debug("[_make_connections][queue was empty...]")
+                await asyncio.sleep(1.0)
 
             logger.debug(f"[_make_connections][response: {started_tunnels}]")
             if started_tunnels != "OK":
