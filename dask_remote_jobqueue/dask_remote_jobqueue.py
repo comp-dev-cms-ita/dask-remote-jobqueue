@@ -77,7 +77,7 @@ class RemoteHTCondor:
         else:
             logging.getLogger().setLevel(logging.INFO)
 
-        logger.debug("[RemoteHTCondor][init]")
+        logger.info("[RemoteHTCondor][init]")
 
         # httpx client
         self.httpx_client = httpx.AsyncClient()
@@ -339,11 +339,12 @@ class RemoteHTCondor:
 
             if self.asynchronous:
                 self.scheduler_address = "Job submitted..."
-
-            await asyncio.sleep(0.33)
+                logger.info("[RemoteHTCondor][Job submitted]")
 
     async def _make_connections(self, connection_done_event: asyncio.Event = None):
         if self.state == State.scheduler_up:
+            logger.info("[RemoteHTCondor][Make connections]")
+
             self.state = State.waiting_connections
 
             # Prepare the ssh tunnel
@@ -477,7 +478,7 @@ class RemoteHTCondor:
             if connection_checks:
                 break
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(2.4)
 
         return connection_checks
 
@@ -490,13 +491,13 @@ class RemoteHTCondor:
 
     async def _close(self):
         if self.state != State.closing:
+            logger.info("[RemoteHTCondor][Closing...]")
+
             was_running = self.state == State.running
             self.state = State.closing
 
             self.scheduler_address: str = ""
             self.dashboard_link: str = ""
-
-            await asyncio.sleep(1.0)
 
             if was_running:
                 # Close the dask cluster
@@ -509,16 +510,17 @@ class RemoteHTCondor:
                 )
 
                 self.connection_process_q.put_nowait("STOP")
-                await asyncio.sleep(1.0)
 
             self.state = State.idle
 
-            await asyncio.sleep(1.0)
+            logger.info("[RemoteHTCondor][Closed!]")
 
     def scale(self, n: int):
         # Scale the cluster
         if self.state != State.running:
-            raise Exception("Cluster is not completely up and running...")
+            raise Exception(
+                "Cluster is not completely up and running. Try again later..."
+            )
 
         target_url = f"http://127.0.0.1:{self.controller_port}/jobs?num={n}"
         logger.debug(f"[Scheduler][scale][num: {n}][url: {target_url}]")
@@ -560,7 +562,9 @@ class RemoteHTCondor:
 
     def adapt(self, minimum: int, maximum: int):
         if self.state != State.running:
-            raise Exception("Cluster is not completely up and running...")
+            raise Exception(
+                "Cluster is not completely up and running. Try again later..."
+            )
 
         target_url = f"http://127.0.0.1:{self.controller_port}/adapt?minimumJobs={minimum}&maximumJobs={maximum}"
         logger.debug(
