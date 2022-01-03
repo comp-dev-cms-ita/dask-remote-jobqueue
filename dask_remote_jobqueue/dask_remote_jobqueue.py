@@ -4,6 +4,7 @@
 # https://opensource.org/licenses/MIT
 import asyncio
 import json
+import logging
 
 # import math
 import os
@@ -51,12 +52,30 @@ class RemoteHTCondor:
         ssh_url_port: int = 8122,
         asynchronous: bool = True,  # Set by dask-labextension but not used in this class
         sitename: str = "",
+        debug: bool = True,
     ):
+        self.__debug = debug
 
-        try:
-            logger.add("/var/log/RemoteHTCondor.log", rotation="32 MB")
-        except PermissionError:
-            logger.add("/tmp/log/RemoteHTCondor.log", rotation="32 MB")
+        if self.__debug:
+            logging.getLogger().setLevel(logging.DEBUG)
+            try:
+                logger.add(
+                    "/var/log/RemoteHTCondor.log",
+                    rotation="32 MB",
+                    enqueue=True,
+                    backtrace=True,
+                    diagnose=True,
+                )
+            except PermissionError:
+                logger.add(
+                    "/tmp/log/RemoteHTCondor.log",
+                    rotation="32 MB",
+                    enqueue=True,
+                    backtrace=True,
+                    diagnose=True,
+                )
+        else:
+            logging.getLogger().setLevel(logging.INFO)
 
         logger.debug("[RemoteHTCondor][init]")
 
