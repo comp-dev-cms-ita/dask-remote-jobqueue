@@ -122,7 +122,7 @@ class ConnectionLoop(Process):
                 await asyncio.sleep(14.0)
                 logger.debug(f"[ConnectionLoop][running: {running}]")
                 try:
-                    res = self.queue.get_nowait()
+                    res = self.queue.get(timeout=0.42)
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
                     if res and res == "STOP":
                         self.stop()
