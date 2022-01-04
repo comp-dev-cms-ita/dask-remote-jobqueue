@@ -290,7 +290,8 @@ class StartDaskScheduler(Process):
                 cmd_out = check_output(
                     cmd, stderr=STDOUT, shell=True, env=self._environ
                 )
-                logger.debug(f"[StartDaskScheduler][run][{cmd_out.decode('ascii')}]")
+                formatted_output = cmd_out.decode("ascii").replace("\n", " ")
+                logger.debug(f"[StartDaskScheduler][run][{formatted_output}]")
             except Exception as ex:
                 raise ex
 
