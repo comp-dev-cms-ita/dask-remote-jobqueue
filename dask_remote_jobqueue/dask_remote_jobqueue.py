@@ -337,12 +337,17 @@ class RemoteHTCondor:
         if self.state == State.idle:
             self.state = State.start
 
-            self.start_sched_process.start()
-            self.start_sched_process.
+            if not self.start_sched_process.is_alive():
+                self.start_sched_process.start()
+
+            await asyncio.sleep(1.0)
+            logger.debug(
+                f"[_start][start_sched_process: {self.start_sched_process.is_alive()}]"
+            )
 
             logger.debug("[_start][waiting for cluster id...]")
             self.cluster_id = ""
-            
+
             while not self.cluster_id:
                 try:
                     msg = self.start_sched_process_q.get(timeout=0.14)
