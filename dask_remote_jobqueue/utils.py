@@ -3,11 +3,11 @@ import json
 import os
 import tempfile
 import weakref
-from typing import Union
-from multiprocessing import Process
-from queue import Queue, Empty
+from multiprocessing import Process, Queue
+from queue import Empty
 from subprocess import STDOUT, check_output
 from time import sleep
+from typing import Union
 
 import asyncssh
 from jinja2 import Environment, PackageLoader, select_autoescape

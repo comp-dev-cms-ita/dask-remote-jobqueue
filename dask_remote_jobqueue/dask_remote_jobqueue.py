@@ -12,7 +12,8 @@ import weakref
 from dataclasses import dataclass
 from enum import Enum
 from inspect import isawaitable
-from queue import Queue, Empty
+from multiprocessing import Queue
+from queue import Empty
 from random import randrange
 from subprocess import STDOUT, check_output
 
