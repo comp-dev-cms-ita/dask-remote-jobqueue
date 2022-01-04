@@ -240,12 +240,12 @@ class RemoteHTCondor:
                     try:
                         msg = self.start_sched_process_q.get_nowait()
                         if msg == "SCHEDULERJOB==IDLE":
-                            self._job_status = "Job is idle..."
+                            self._job_status = "Job is idle"
                         elif msg == "SCHEDULERJOB==HOLD":
-                            self._job_status = "Job is hold..."
+                            self._job_status = "Job is hold"
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
-                            self._job_status = "Waiting for connection..."
+                            self._job_status = "Waiting for connection"
                     except Empty:
                         logger.debug("[Scheduler][scheduler_info][empty queue...]")
 
@@ -260,7 +260,7 @@ class RemoteHTCondor:
                         is_ok = await self._connection_ok()
                         if is_ok:
                             self.state = State.running
-                            self._job_status = ""
+                            self._job_status = "Running"
                         else:
                             self.state = State.error
                             self._job_status = "Error on connection..."
@@ -365,7 +365,7 @@ class RemoteHTCondor:
             logger.debug(f"[_start][cluster_id: {self.cluster_id}")
 
             if self.asynchronous:
-                self._job_status = "Job submitted..."
+                self._job_status = "Job submitted"
                 logger.info("[RemoteHTCondor][Job submitted]")
 
     async def _make_connections(self, connection_done_event: asyncio.Event = None):
@@ -529,7 +529,7 @@ class RemoteHTCondor:
 
             self.scheduler_address: str = ""
             self.dashboard_link: str = ""
-            self._job_status = ""
+            self._job_status = "Closing"
 
             if was_running:
                 # Close the dask cluster
