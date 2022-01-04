@@ -85,6 +85,7 @@ class RemoteHTCondor:
 
         # Inner class status
         self.state: State = State.idle
+        self._job_status: str = ""
         self.asynchronous: bool = asynchronous
 
         self.connection_process_q: "Queue" = Queue()
@@ -185,6 +186,10 @@ class RemoteHTCondor:
     def controller_address(self) -> str:
         return f"http://localhost:{self.controller_port}"
 
+    @property
+    def job_status(self) -> str:
+        return self._job_status
+
     def __await__(self):
         """Make the class awaitable.
 
@@ -225,9 +230,7 @@ class RemoteHTCondor:
 
     @property
     def scheduler_info(self) -> dict:
-        logger.debug(
-            f"[Scheduler][scheduler_info][scheduler_address: {self.scheduler_address}][state: {self.state}]"
-        )
+        logger.debug(f"[Scheduler][scheduler_info][state: {self.state}]")
         if self.state != State.running:
             if self.asynchronous:
                 if self.state == State.start:
@@ -237,12 +240,12 @@ class RemoteHTCondor:
                     try:
                         msg = self.start_sched_process_q.get_nowait()
                         if msg == "SCHEDULERJOB==IDLE":
-                            self.scheduler_address = "Job is idle..."
+                            self._job_status = "Job is idle..."
                         elif msg == "SCHEDULERJOB==HOLD":
-                            self.scheduler_address = "Job is hold..."
+                            self._job_status = "Job is hold..."
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
-                            self.scheduler_address = "Waiting for connection..."
+                            self._job_status = "Waiting for connection..."
                     except Empty:
                         logger.debug("[Scheduler][scheduler_info][empty queue...]")
 
@@ -257,9 +260,10 @@ class RemoteHTCondor:
                         is_ok = await self._connection_ok()
                         if is_ok:
                             self.state = State.running
+                            self._job_status = ""
                         else:
                             self.state = State.error
-                            self.scheduler_address = "Error on connection..."
+                            self._job_status = "Error on connection..."
                             self.dashboard_link = ""
 
                     cur_loop.create_task(
@@ -361,7 +365,7 @@ class RemoteHTCondor:
             logger.debug(f"[_start][cluster_id: {self.cluster_id}")
 
             if self.asynchronous:
-                self.scheduler_address = "Job submitted..."
+                self._job_status = "Job submitted..."
                 logger.info("[RemoteHTCondor][Job submitted]")
 
     async def _make_connections(self, connection_done_event: asyncio.Event = None):
@@ -460,7 +464,7 @@ class RemoteHTCondor:
         logger.debug(f"[_connection_ok][job_status: {job_status}]")
         if job_status != 2:
             self.state = State.error
-            self.scheduler_address = "Scheduler Job exited with errors..."
+            self._job_status = "Scheduler Job exited with errors..."
             self.dashboard_link = ""
 
             return False
@@ -525,6 +529,7 @@ class RemoteHTCondor:
 
             self.scheduler_address: str = ""
             self.dashboard_link: str = ""
+            self._job_status = ""
 
             if was_running:
                 # Close the dask cluster
