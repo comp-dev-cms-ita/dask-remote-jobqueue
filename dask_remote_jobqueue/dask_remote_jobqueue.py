@@ -338,17 +338,20 @@ class RemoteHTCondor:
             self.state = State.start
 
             self.start_sched_process.start()
+            self.start_sched_process.
 
             logger.debug("[_start][waiting for cluster id...]")
-            msg = ""
-            while not msg:
+            self.cluster_id = ""
+            
+            while not self.cluster_id:
                 try:
-                    msg = self.start_sched_process_q.get(timeout=0.42)
+                    msg = self.start_sched_process_q.get(timeout=0.14)
+                    logger.debug(f"[_start][msg: {msg}]")
+                    self.cluster_id = msg
                 except Empty:
                     logger.debug("[_start][queue was empty...]")
                 await asyncio.sleep(1.0)
 
-            self.cluster_id = msg
             logger.debug(f"[_start][cluster_id: {self.cluster_id}")
 
             if self.asynchronous:
