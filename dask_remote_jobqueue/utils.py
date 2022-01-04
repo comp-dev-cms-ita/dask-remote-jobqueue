@@ -3,10 +3,11 @@ import json
 import os
 import tempfile
 import weakref
-from typing import Union
 from multiprocessing import Process, Queue
+from queue import Empty
 from subprocess import STDOUT, check_output
 from time import sleep
+from typing import Union
 
 import asyncssh
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -43,15 +44,24 @@ class ConnectionLoop(Process):
         self.controller_port: int = controller_port
         self.tasks: list = []
         self.queue: "Queue" = queue
+        self.f_sched_conn: Union[asyncssh.SSHListener, None] = None
+        self.f_dash_port: Union[asyncssh.SSHListener, None] = None
+        self.f_controller_port: Union[asyncssh.SSHListener, None] = None
 
     def stop(self):
         self.loop = asyncio.get_running_loop()
 
-        async def _close_connection(connection):
-            logger.debug(f"[ConnectionLoop][close connection {connection}]")
-            connection.close()
+        async def _close_connection():
+            logger.debug(f"[ConnectionLoop][close connection {self.f_sched_conn}]")
+            self.f_sched_conn.close()
+            logger.debug(f"[ConnectionLoop][close connection {self.f_dash_port}]")
+            self.f_dash_port.close()
+            logger.debug(f"[ConnectionLoop][close connection {self.f_controller_port}]")
+            self.f_controller_port.close()
+            logger.debug(f"[ConnectionLoop][close connection {self.connection}]")
+            self.connection.close()
 
-        self.loop.create_task(_close_connection(self.connection))
+        self.loop.create_task(_close_connection())
 
     def run(self):
         async def forward_connection():
@@ -66,11 +76,10 @@ class ConnectionLoop(Process):
                 password=self.token,
                 known_hosts=None,
             )
-
-            await asyncio.sleep(2.0)
+            self.connection.set_keepalive(interval=6.0, count_max=6)
 
             logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
-            sched_conn = await self.connection.forward_local_port(
+            self.f_sched_conn = await self.connection.forward_local_port(
                 "127.0.0.1",
                 self.sched_port,
                 "127.0.0.1",
@@ -78,30 +87,28 @@ class ConnectionLoop(Process):
             )
 
             logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
-            dash_port = await self.connection.forward_local_port(
+            self.f_dash_port = await self.connection.forward_local_port(
                 "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
             )
 
             logger.debug(
                 f"[ConnectionLoop][connect][controller][{self.controller_port}]"
             )
-            controller_port = await self.connection.forward_local_port(
+            self.f_controller_port = await self.connection.forward_local_port(
                 "127.0.0.1",
                 self.controller_port,
                 "127.0.0.1",
                 self.controller_port,
             )
 
-            await asyncio.sleep(2.0)
-
             if self.queue:
                 self.queue.put("OK")
 
-            await sched_conn.wait_closed()
+            await self.f_sched_conn.wait_closed()
             logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
-            await dash_port.wait_closed()
+            await self.f_dash_port.wait_closed()
             logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
-            await controller_port.wait_closed()
+            await self.f_controller_port.wait_closed()
             logger.debug(
                 f"[ConnectionLoop][closed][controller][{self.controller_port}]"
             )
@@ -114,8 +121,8 @@ class ConnectionLoop(Process):
             while running:
                 await asyncio.sleep(14.0)
                 logger.debug(f"[ConnectionLoop][running: {running}]")
-                if not self.queue.empty():
-                    res = self.queue.get_nowait()
+                try:
+                    res = self.queue.get(timeout=0.42)
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
                     if res and res == "STOP":
                         self.stop()
@@ -124,6 +131,8 @@ class ConnectionLoop(Process):
                         for i in reversed(range(6)):
                             logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
                             await asyncio.sleep(1)
+                except Empty:
+                    pass
 
             logger.debug("[ConnectionLoop][DONE]")
 
@@ -281,7 +290,8 @@ class StartDaskScheduler(Process):
                 cmd_out = check_output(
                     cmd, stderr=STDOUT, shell=True, env=self._environ
                 )
-                logger.debug(f"[StartDaskScheduler][run][{cmd_out.decode('ascii')}]")
+                formatted_output = cmd_out.decode("ascii").replace("\n", " ")
+                logger.debug(f"[StartDaskScheduler][run][{formatted_output}]")
             except Exception as ex:
                 raise ex
 
@@ -296,14 +306,16 @@ class StartDaskScheduler(Process):
                 ex = Exception("Failed to submit job for scheduler: %s" % cmd_out)
                 raise ex
 
-            self._queue.put(self._cluster_id)
+        logger.debug(f"[StartDaskScheduler][run][PUT jobid: {self._cluster_id}]")
+        self._queue.put(self._cluster_id)
+        logger.debug("[StartDaskScheduler][run][PUT DONE]")
 
         # Wait for the job to be running
         job_status = 1
 
         # While job is idle or hold
         while job_status in [1, 5]:
-            sleep(6.0)
+            sleep(6)
 
             logger.debug("[StartDaskScheduler][run][Check job status]")
             cmd = "condor_q {}.0 -json".format(self._cluster_id)
@@ -338,7 +350,7 @@ class StartDaskScheduler(Process):
                 ex = Exception("Scheduler job in error {}".format(job_status))
                 raise ex
 
-        self._queue.put_nowait("SCHEDULERJOB==RUNNING")
+        self._queue.put("SCHEDULERJOB==RUNNING")
 
         logger.debug(
             f"[StartDaskScheduler][run][jobid: {self._cluster_id}.0 -> {job_status}]"
