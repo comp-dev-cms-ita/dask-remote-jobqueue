@@ -164,7 +164,7 @@ class SchedulerProc(Process):
         self.cluster = HTCondorCluster(
             job_cls=MyHTCondorJob,
             cores=1,
-            memory="2 GB",
+            memory="2 GiB",
             disk="1 GB",
             scheduler_options=scheduler_options_vars,
             job_extra=job_extra_vars,
