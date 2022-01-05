@@ -164,7 +164,7 @@ class SchedulerProc(Process):
         self.cluster = HTCondorCluster(
             job_cls=MyHTCondorJob,
             cores=1,
-            memory="2 GiB",
+            memory="2 GiB",  # ref: https://github.com/dask/dask/blob/e4799c0498b5e5877705bb5542d8d01116ee1320/dask/utils.py#L1404
             disk="1 GB",
             scheduler_options=scheduler_options_vars,
             job_extra=job_extra_vars,
