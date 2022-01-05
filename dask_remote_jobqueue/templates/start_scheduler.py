@@ -144,10 +144,16 @@ class SchedulerProc(Process):
                 memory_limit = spec["options"].get("memory_limit", "")
             if memory_limit:
                 if isinstance(memory_limit, str):
-                    if memory_limit.find("gb"):
+                    if memory_limit.find("gb") != -1:
                         memory_limit = (
                             int(memory_limit.replace("gb", "").strip()) * 10 ** 9
                         )
+                    elif memory_limit.find("gib") != -1:
+                        memory_limit = (
+                            int(memory_limit.replace("gib", "").strip()) * 2 ** 30
+                        )
+                    else:
+                        memory_limit = -1
                 elif not isinstance(memory_limit, int):
                     memory_limit = -1
                 # See dask-labextension make_cluster_model
