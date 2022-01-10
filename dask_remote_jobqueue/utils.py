@@ -111,7 +111,8 @@ class ConnectionLoop(Process):
             except (OSError, asyncssh.Error) as exc:
                 logger.debug(f"[ConnectionLoop][error][create connection][{exc}]")
                 self.queue.put("ERROR")
-                raise
+
+                return
 
             await self.f_sched_conn.wait_closed()
             logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
@@ -132,12 +133,15 @@ class ConnectionLoop(Process):
                 logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
                 if self._tunnel_running:
                     try:
-                        chan, _ = await self.connection.create_session(term_type="Dumb")
+                        logger.debug("[ConnectionLoop][check_connection]")
+                        chan, _ = await self.connection.create_session(
+                            asyncssh.stream.SSHClientStreamSession, term_type="Dumb"
+                        )
                         await chan.close()
-                        logger.debug(f"[ConnectionLoop][check connection][OK]")
+                        logger.debug(f"[ConnectionLoop][check_connection][OK]")
                     except (OSError, asyncssh.Error) as exc:
                         logger.debug(
-                            f"[ConnectionLoop][check connection][error: {exc}]"
+                            f"[ConnectionLoop][check_connection][error: {exc}]"
                         )
                         running = False
                         pass
