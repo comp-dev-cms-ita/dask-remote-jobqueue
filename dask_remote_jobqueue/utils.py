@@ -130,24 +130,30 @@ class ConnectionLoop(Process):
             while running:
                 await asyncio.sleep(14.0)
                 logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
-                try:
-                    chan, _ = await self.connection.create_session(term_type="Dumb")
-                    await chan.close()
-                    logger.debug(f"[ConnectionLoop][check connection][OK]")
-                except (OSError, asyncssh.Error) as exc:
-                    logger.debug(f"[ConnectionLoop][check connection][error: {exc}]")
+                if self._tunnel_running:
+                    try:
+                        chan, _ = await self.connection.create_session(term_type="Dumb")
+                        await chan.close()
+                        logger.debug(f"[ConnectionLoop][check connection][OK]")
+                    except (OSError, asyncssh.Error) as exc:
+                        logger.debug(
+                            f"[ConnectionLoop][check connection][error: {exc}]"
+                        )
+                        running = False
+                        pass
                 try:
                     res = self.queue.get(timeout=0.42)
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
                     if res and res == "STOP":
-                        self.stop()
                         running = False
-                        logger.debug("[ConnectionLoop][Exiting]")
-                        for i in reversed(range(6)):
-                            logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
-                            await asyncio.sleep(1)
                 except Empty:
                     pass
+
+            self.stop()
+            logger.debug("[ConnectionLoop][Exiting]")
+            for i in reversed(range(6)):
+                logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
+                await asyncio.sleep(1)
 
             logger.debug("[ConnectionLoop][DONE]")
 

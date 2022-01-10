@@ -420,7 +420,8 @@ class RemoteHTCondor:
             if started_tunnels != "OK":
                 self.state = State.error
                 self._job_status = "Error on make tunnel..."
-                raise Exception("Cannot make any tunnel...")
+
+                return
 
             self.address = "localhost:{}".format(self.sched_port)
             self.dashboard_address = "http://localhost:{}".format(self.dash_port)
@@ -454,7 +455,6 @@ class RemoteHTCondor:
             else:
                 self.state = State.error
                 self._job_status = "Error on make connection..."
-                raise Exception("Cannot check connections")
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
         logger.debug("[_connection_ok][run][Check job status]")
@@ -468,9 +468,11 @@ class RemoteHTCondor:
             classAd = json.loads(cmd_out)
             logger.debug(f"[_connection_ok][run][classAd: {classAd}]")
         except Exception as cur_ex:
-            logger.debug(f"[_connection_ok][run][{cur_ex}]")
-            ex = Exception("Failed to decode claasAd for scheduler: %s" % cmd_out)
-            raise ex
+            logger.debug(f"[_connection_ok][run][{cur_ex}][{cmd_out}]")
+            self._job_status = "Failed to decode claasAd..."
+            self.state = State.error
+
+            return False
 
         job_status = classAd[0].get("JobStatus")
         logger.debug(f"[_connection_ok][job_status: {job_status}]")
