@@ -274,6 +274,14 @@ class RemoteHTCondor:
                     logger.debug(
                         "[Scheduler][scheduler_info][waiting for connection...]"
                     )
+                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+
+                    async def sleep_loop():
+                        await asyncio.sleep(1.0)
+
+                    cur_loop.create_task(sleep_loop())
+                    num_points = (self._job_status.count(".") + 1) % 4
+                    self._job_status = "Waiting for connection" + "." * num_points
 
             return self._scheduler_info
 
@@ -442,6 +450,7 @@ class RemoteHTCondor:
             self.state = State.running
 
             if connection_done_event:
+                logger.debug("[_make_connections][connection_done_event: set]")
                 connection_done_event.set()
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
