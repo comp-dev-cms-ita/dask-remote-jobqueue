@@ -414,10 +414,12 @@ class RemoteHTCondor:
                     started_tunnels = self.connection_process_q.get_nowait()
                 except Empty:
                     logger.debug("[_make_connections][queue was empty...]")
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(2.0)
 
             logger.debug(f"[_make_connections][response: {started_tunnels}]")
             if started_tunnels != "OK":
+                self.state = State.error
+                self._job_status = "Error on make tunnel..."
                 raise Exception("Cannot make any tunnel...")
 
             self.address = "localhost:{}".format(self.sched_port)
@@ -442,16 +444,17 @@ class RemoteHTCondor:
             for attempt in range(10):
                 logger.debug(f"[_make_connections][attempt: {attempt}]")
                 if await self._connection_ok(1):
+                    self.state = State.running
+                    if connection_done_event:
+                        logger.debug("[_make_connections][connection_done_event: set]")
+                        connection_done_event.set()
+
                     break
                 await asyncio.sleep(6.0)
             else:
+                self.state = State.error
+                self._job_status = "Error on make connection..."
                 raise Exception("Cannot check connections")
-
-            self.state = State.running
-
-            if connection_done_event:
-                logger.debug("[_make_connections][connection_done_event: set]")
-                connection_done_event.set()
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
         logger.debug("[_connection_ok][run][Check job status]")

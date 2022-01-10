@@ -47,6 +47,7 @@ class ConnectionLoop(Process):
         self.f_sched_conn: Union[asyncssh.SSHListener, None] = None
         self.f_dash_port: Union[asyncssh.SSHListener, None] = None
         self.f_controller_port: Union[asyncssh.SSHListener, None] = None
+        self._tunnel_running: bool = False
 
     def stop(self):
         self.loop = asyncio.get_running_loop()
@@ -68,41 +69,49 @@ class ConnectionLoop(Process):
             logger.debug(
                 f"[ConnectionLoop][connect][{self.ssh_url}][{self.ssh_url_port}][{self.token}]"
             )
-            # Ref: https://asyncssh.readthedocs.io/
-            self.connection = await asyncssh.connect(
-                host=self.ssh_url,
-                port=self.ssh_url_port,
-                username=self.username,
-                password=self.token,
-                known_hosts=None,
-            )
-            self.connection.set_keepalive(interval=6.0, count_max=6)
+            try:
+                # Ref: https://asyncssh.readthedocs.io/
+                self.connection = await asyncssh.connect(
+                    host=self.ssh_url,
+                    port=self.ssh_url_port,
+                    username=self.username,
+                    password=self.token,
+                    known_hosts=None,
+                )
+                self.connection.set_keepalive(interval=14.0, count_max=10)
 
-            logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
-            self.f_sched_conn = await self.connection.forward_local_port(
-                "127.0.0.1",
-                self.sched_port,
-                "127.0.0.1",
-                self.sched_port,
-            )
+                logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
+                self.f_sched_conn = await self.connection.forward_local_port(
+                    "127.0.0.1",
+                    self.sched_port,
+                    "127.0.0.1",
+                    self.sched_port,
+                )
 
-            logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
-            self.f_dash_port = await self.connection.forward_local_port(
-                "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
-            )
+                logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
+                self.f_dash_port = await self.connection.forward_local_port(
+                    "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
+                )
 
-            logger.debug(
-                f"[ConnectionLoop][connect][controller][{self.controller_port}]"
-            )
-            self.f_controller_port = await self.connection.forward_local_port(
-                "127.0.0.1",
-                self.controller_port,
-                "127.0.0.1",
-                self.controller_port,
-            )
+                logger.debug(
+                    f"[ConnectionLoop][connect][controller][{self.controller_port}]"
+                )
+                self.f_controller_port = await self.connection.forward_local_port(
+                    "127.0.0.1",
+                    self.controller_port,
+                    "127.0.0.1",
+                    self.controller_port,
+                )
 
-            if self.queue:
-                self.queue.put("OK")
+                self._tunnel_running = True
+
+                if self.queue:
+                    self.queue.put("OK")
+
+            except (OSError, asyncssh.Error) as exc:
+                logger.debug(f"[ConnectionLoop][error][create connection][{exc}]")
+                self.queue.put("ERROR")
+                raise
 
             await self.f_sched_conn.wait_closed()
             logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
@@ -117,10 +126,16 @@ class ConnectionLoop(Process):
 
         async def _main_loop():
             running: bool = True
-            logger.debug(f"[ConnectionLoop][running: {running}]")
+            logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
             while running:
                 await asyncio.sleep(14.0)
-                logger.debug(f"[ConnectionLoop][running: {running}]")
+                logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
+                try:
+                    chan, _ = await self.connection.create_session(term_type="Dumb")
+                    await chan.close()
+                    logger.debug(f"[ConnectionLoop][check connection][OK]")
+                except (OSError, asyncssh.Error) as exc:
+                    logger.debug(f"[ConnectionLoop][check connection][error: {exc}]")
                 try:
                     res = self.queue.get(timeout=0.42)
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
