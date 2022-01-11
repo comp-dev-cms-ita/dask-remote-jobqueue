@@ -9,9 +9,10 @@ chmod +x job_rm.sh
 
 # Configure oidc-agent for user token management
 echo -e "\n" >>.bashrc
-echo "eval \`oidc-keychain\`" >>.bashrc
+# Ref: https://indigo-dc.gitbook.io/oidc-agent/user/oidc-keychain
+echo -e "eval \$(oidc-keychain)" >>.bashrc
 
-source .bashrc
+eval "$(oidc-keychain)"
 
 oidc-gen dodas --issuer "$IAM_SERVER" \
     --client-id "$IAM_CLIENT_ID" \
