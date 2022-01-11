@@ -523,6 +523,7 @@ class RemoteHTCondor:
             if connection_checks:
                 break
 
+            connection_checks = True
             await asyncio.sleep(2.4)
 
         return connection_checks
