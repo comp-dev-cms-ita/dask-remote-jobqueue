@@ -151,7 +151,7 @@ class ConnectionLoop(Process):
                             )
                             running = False
                         else:
-                            logger.debug(f"[ConnectionLoop][check_connection][OK]")
+                            logger.debug("[ConnectionLoop][check_connection][OK]")
                     except (OSError, asyncssh.Error) as exc:
                         logger.debug(
                             f"[ConnectionLoop][check_connection][error: {exc}]"
