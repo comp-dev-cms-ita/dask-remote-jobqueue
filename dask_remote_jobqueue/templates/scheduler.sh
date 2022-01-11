@@ -8,8 +8,11 @@ chmod +x job_submit.sh
 chmod +x job_rm.sh
 
 # Configure oidc-agent for user token management
-echo "eval \`oidc-keychain\`" >>~/.bashrc
-eval "$(oidc-keychain)"
+echo -e "\n" >>.bashrc
+echo "eval \`oidc-keychain\`" >>.bashrc
+
+source .bashrc
+
 oidc-gen dodas --issuer "$IAM_SERVER" \
     --client-id "$IAM_CLIENT_ID" \
     --client-secret "$IAM_CLIENT_SECRET" \
