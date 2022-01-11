@@ -442,6 +442,7 @@ class RemoteHTCondor:
             for attempt in range(10):
                 logger.debug(f"[_make_connections][attempt: {attempt}]")
                 if await self._connection_ok(1):
+                    logger.debug("[_make_connections][connection_done]")
                     self.state = State.running
                     if connection_done_event:
                         logger.debug("[_make_connections][connection_done_event: set]")
@@ -452,6 +453,8 @@ class RemoteHTCondor:
             else:
                 self.state = State.error
                 self._job_status = "Error on make connection..."
+
+            await asyncio.sleep(6.0)
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
         logger.debug("[_connection_ok][run][Check job status]")
