@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import os
+from contextlib import suppress
 from multiprocessing import Process, Queue
 from subprocess import STDOUT, check_output
 from time import sleep
@@ -201,7 +202,8 @@ class SchedulerProc(Process):
             elif msg["op"] == "close":
                 self.__running = False
                 logger.debug("[SchedulerProc][close]")
-                self.cluster.close()
+                with suppress(AssertionError):  # If some jobs are not yet killed
+                    self.cluster.close()
             elif msg["op"] == "scaleZeroAndClose":
                 logger.debug("[SchedulerProc][scaling to 0]")
                 clusterID = msg["clusterID"]
@@ -210,9 +212,11 @@ class SchedulerProc(Process):
                     logger.debug(
                         f"[SchedulerProc][workers to kill: {len(self.cluster.worker_spec)}]"
                     )
+                sleep(6)
                 self.__running = False
                 logger.debug("[SchedulerProc][close]")
-                self.cluster.close()
+                with suppress(AssertionError):  # If some jobs are not yet killed
+                    self.cluster.close()
             elif msg["op"] == "adapt":
                 logger.debug(
                     f"[SchedulerProc][adapt {msg['minimum_jobs']}-{msg['maximum_jobs']}]"
