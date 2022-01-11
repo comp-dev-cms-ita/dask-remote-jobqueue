@@ -10,6 +10,7 @@ from time import sleep
 from typing import Union
 
 import asyncssh
+import httpx
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
 
@@ -127,6 +128,9 @@ class ConnectionLoop(Process):
 
         async def _main_loop():
             running: bool = True
+            client = httpx.AsyncClient()
+            target_url = f"http://localhost:{self.controller_port}"
+
             logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
             while running:
                 await asyncio.sleep(14.0)
@@ -134,16 +138,26 @@ class ConnectionLoop(Process):
                 if self._tunnel_running:
                     try:
                         logger.debug("[ConnectionLoop][check_connection]")
-                        chan, _ = await self.connection.create_session(
-                            asyncssh.stream.SSHClientStreamSession, term_type="Dumb"
+                        logger.debug(
+                            f"[ConnectionLoop][check_controller][{target_url}]"
                         )
-                        await chan.close()
-                        logger.debug(f"[ConnectionLoop][check_connection][OK]")
+                        resp = await client.get(target_url)
+                        logger.debug(
+                            f"[ConnectionLoop][check_controller][resp({resp.status_code})]"
+                        )
+                        if resp.status_code != 200:
+                            logger.debug(
+                                "[ConnectionLoop][check_controller][ERROR][Cannot connect to controller]"
+                            )
+                            running = False
+                        else:
+                            logger.debug(f"[ConnectionLoop][check_connection][OK]")
                     except (OSError, asyncssh.Error) as exc:
                         logger.debug(
                             f"[ConnectionLoop][check_connection][error: {exc}]"
                         )
                         running = False
+
                         pass
                 try:
                     res = self.queue.get(timeout=0.42)
@@ -158,6 +172,8 @@ class ConnectionLoop(Process):
             for i in reversed(range(6)):
                 logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
                 await asyncio.sleep(1)
+
+            await client.aclose()
 
             logger.debug("[ConnectionLoop][DONE]")
 

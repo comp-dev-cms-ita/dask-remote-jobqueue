@@ -16,6 +16,7 @@ from multiprocessing import Queue
 from queue import Empty
 from random import randrange
 from subprocess import STDOUT, check_output
+from typing import Union
 
 import httpx
 import requests
@@ -89,9 +90,7 @@ class RemoteHTCondor:
         self.asynchronous: bool = asynchronous
 
         self.connection_process_q: "Queue" = Queue()
-        self.connection_process: "ConnectionLoop" = ConnectionLoop(
-            self.connection_process_q
-        )
+        self.connection_process: Union["ConnectionLoop", None] = None
         self.start_sched_process_q: "Queue" = Queue()
         self.start_sched_process: "StartDaskScheduler" = StartDaskScheduler(
             weakref.proxy(self), self.start_sched_process_q, os.environ
@@ -390,22 +389,20 @@ class RemoteHTCondor:
             logger.debug(f"[_make_connections][username: {self.name}]")
             logger.debug(f"[_make_connections][password: {self.token}]")
 
-            self.connection_process = ConnectionLoop(
-                self.connection_process_q,
-                ssh_url=ssh_url,
-                ssh_url_port=self.ssh_url_port,
-                username=self.name,
-                token=self.token,
-                sched_port=self.sched_port,
-                dash_port=self.dash_port,
-                controller_port=self.controller_port,
-            )
-            logger.debug("[_make_connections][Start connection process]")
-
-            try:
+            if not self.connection_process:
+                self.connection_process = ConnectionLoop(
+                    self.connection_process_q,
+                    ssh_url=ssh_url,
+                    ssh_url_port=self.ssh_url_port,
+                    username=self.name,
+                    token=self.token,
+                    sched_port=self.sched_port,
+                    dash_port=self.dash_port,
+                    controller_port=self.controller_port,
+                )
+                logger.debug("[_make_connections][Start connection process]")
                 self.connection_process.start()
-            except AssertionError:
-                logger.debug("[_make_connections][already started...]")
+                await asyncio.sleep(1)
 
             logger.debug("[_make_connections][Wait for queue...]")
             started_tunnels = ""
