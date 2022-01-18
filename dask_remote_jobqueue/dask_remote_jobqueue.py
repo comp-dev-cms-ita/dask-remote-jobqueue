@@ -82,7 +82,8 @@ class RemoteHTCondor:
         logger.info("[RemoteHTCondor][init]")
 
         # httpx client
-        self.httpx_client = httpx.AsyncClient()
+        timeout = httpx.Timeout(60.0)
+        self.httpx_client = httpx.AsyncClient(timeout=timeout)
 
         # Inner class status
         self.state: State = State.idle
@@ -307,21 +308,25 @@ class RemoteHTCondor:
         target_url = f"http://127.0.0.1:{self.controller_port}/schedulerID"
         logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
 
-        resp = requests.get(target_url)
-        logger.debug(
-            f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
-        )
-        self._scheduler_info["id"] = resp.text
+        try:
+            resp = requests.get(target_url)
+            logger.debug(
+                f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
+            )
+            self._scheduler_info["id"] = resp.text
 
-        # Update the worker specs
-        target_url = f"http://127.0.0.1:{self.controller_port}/workerSpec"
-        logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
+            # Update the worker specs
+            target_url = f"http://127.0.0.1:{self.controller_port}/workerSpec"
+            logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
 
-        resp = requests.get(target_url)
-        logger.debug(
-            f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
-        )
-        self._scheduler_info["workers"] = json.loads(resp.text)
+            resp = requests.get(target_url)
+            logger.debug(
+                f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
+            )
+            self._scheduler_info["workers"] = json.loads(resp.text)
+        except requests.RequestException as exc:
+            logger.debug(f"[Scheduler][scheduler_info][error: {exc}]")
+            self._job_status = "Connection error..."
 
         return self._scheduler_info
 
