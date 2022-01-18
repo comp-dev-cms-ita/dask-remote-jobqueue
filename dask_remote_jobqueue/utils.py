@@ -128,7 +128,8 @@ class ConnectionLoop(Process):
 
         async def _main_loop():
             running: bool = True
-            client = httpx.AsyncClient()
+            timeout = httpx.Timeout(60.0)
+            client = httpx.AsyncClient(timeout=timeout)
             target_url = f"http://localhost:{self.controller_port}"
 
             logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
@@ -157,8 +158,10 @@ class ConnectionLoop(Process):
                             f"[ConnectionLoop][check_connection][error: {exc}]"
                         )
                         running = False
-
-                        pass
+                    except httpx.TimeoutException as exc:
+                        logger.debug(
+                            f"[ConnectionLoop][check_connection][error: {exc}]"
+                        )
                 try:
                     res = self.queue.get(timeout=0.42)
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
