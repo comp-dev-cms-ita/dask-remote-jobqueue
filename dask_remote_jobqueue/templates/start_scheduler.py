@@ -701,11 +701,11 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
         self.sched_q.put({"op": "worker_spec"})
         res = self.controller_q.get()
         logger.debug(f"[WorkerSpecHandler][res: {res}]")
-        
+
         if res == "NOTMODIFIED":
             self.set_status(304)
-            
-        self.write(res)
+        else:
+            self.write(res)
 
 
 def make_app(sched_q: Queue, controller_q: Queue):
