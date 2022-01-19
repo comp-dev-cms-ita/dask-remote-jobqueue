@@ -13,9 +13,9 @@ from multiprocessing import Process, Queue
 from subprocess import STDOUT, check_output
 from time import sleep
 
+
 import asyncssh
 import dask.config
-import msgpack
 import tornado.ioloop
 import tornado.web
 import yaml
@@ -693,7 +693,7 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
         self.sched_q.put({"op": "worker_spec"})
         res = self.controller_q.get()
         logger.debug(f"[WorkerSpecHandler][res: {res}]")
-        self.write(msgpack.packb(res))
+        self.write(json.dumps(res))
 
 
 def make_app(sched_q: Queue, controller_q: Queue):

@@ -19,7 +19,6 @@ from subprocess import STDOUT, check_output
 from typing import Union
 
 import httpx
-import msgpack
 import requests
 from loguru import logger
 
@@ -325,7 +324,7 @@ class RemoteHTCondor:
             logger.debug(
                 f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
             )
-            self._scheduler_info["workers"] = msgpack.unpackb(resp.text)
+            self._scheduler_info["workers"] = json.loads(resp.text)
         except requests.RequestException as exc:
             logger.debug(f"[Scheduler][scheduler_info][error: {exc}]")
             self._job_status = "Connection error..."
