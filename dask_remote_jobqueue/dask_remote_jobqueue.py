@@ -239,10 +239,11 @@ class RemoteHTCondor:
                     )
                     try:
                         msg = self.start_sched_process_q.get_nowait()
+                        num_points = (self._job_status.count(".") + 1) % 4
                         if msg == "SCHEDULERJOB==IDLE":
-                            self._job_status = "Job is idle"
+                            self._job_status = "Job is idle" + "." * num_points
                         elif msg == "SCHEDULERJOB==HOLD":
-                            self._job_status = "Job is hold"
+                            self._job_status = "Job is hold" + "." * num_points
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
                             self._job_status = "Waiting for connection"
