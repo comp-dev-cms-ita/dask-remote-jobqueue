@@ -136,6 +136,7 @@ class SchedulerProc(Process):
         self.__running: bool = False
         self.cluster = None
         self.adaptive = None
+        self._worker_spec_json = ""
         logger.debug(f"[SchedulerProc][dask][config][{dask.config.config}]")
 
     def _worker_spec(self) -> dict:
@@ -145,21 +146,18 @@ class SchedulerProc(Process):
             memory_limit = spec["options"].get("memory", "").lower()
             if not memory_limit:
                 memory_limit = spec["options"].get("memory_limit", "")
-            if memory_limit:
-                if isinstance(memory_limit, str):
-                    if memory_limit.find("gb") != -1:
-                        memory_limit = (
-                            int(memory_limit.replace("gb", "").strip()) * 10 ** 9
-                        )
-                    elif memory_limit.find("gib") != -1:
-                        memory_limit = (
-                            int(memory_limit.replace("gib", "").strip()) * 2 ** 30
-                        )
-                    else:
-                        memory_limit = -1
-                elif not isinstance(memory_limit, int):
+            if isinstance(memory_limit, str):
+                if memory_limit.find("gb") != -1:
+                    memory_limit = int(memory_limit.replace("gb", "").strip()) * 10 ** 9
+                elif memory_limit.find("gib") != -1:
+                    memory_limit = (
+                        int(memory_limit.replace("gib", "").strip()) * 2 ** 30
+                    )
+                else:
                     memory_limit = -1
-                # See dask-labextension make_cluster_model
+            elif not isinstance(memory_limit, int):
+                memory_limit = -1
+            # See dask-labextension make_cluster_model
             n_cores = spec["options"].get("cores", -1)
             if n_cores == -1:
                 n_cores = spec["options"].get("nthreads", -1)
@@ -238,8 +236,18 @@ class SchedulerProc(Process):
                 self.cluster.scale(n=msg["num"])
             elif msg["op"] == "worker_spec":
                 specs = self._worker_spec()
-                logger.debug(f"[SchedulerProc][worker_spec][resp: {specs}]")
-                self.controller_q.put(specs)
+                cur_specs = json.dumps(specs)
+                if cur_specs != self._worker_spec_json:
+                    self._worker_spec_json = cur_specs
+                    logger.debug(
+                        f"[SchedulerProc][worker_spec][resp: {self._worker_spec_json}]"
+                    )
+                    self.controller_q.put(self._worker_spec_json)
+                else:
+                    logger.debug(
+                        f"[SchedulerProc][worker_spec][NOTMODIFIED][resp: {self._worker_spec_json}]"
+                    )
+                    self.controller_q.put("NOTMODIFIED")
             elif msg["op"] == "logs":
                 # https://github.com/dask/distributed/blob/55ff8337e95a55abf9268c19342572a09e1066ac/distributed/deploy/cluster.py#L295
                 cluster_logs: str = self.cluster.get_logs(
@@ -693,7 +701,11 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
         self.sched_q.put({"op": "worker_spec"})
         res = self.controller_q.get()
         logger.debug(f"[WorkerSpecHandler][res: {res}]")
-        self.write(json.dumps(res))
+        
+        if res == "NOTMODIFIED":
+            self.set_status(304)
+            
+        self.write(res)
 
 
 def make_app(sched_q: Queue, controller_q: Queue):
