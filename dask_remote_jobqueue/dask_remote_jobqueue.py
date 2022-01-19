@@ -82,7 +82,7 @@ class RemoteHTCondor:
         logger.info("[RemoteHTCondor][init]")
 
         # httpx client
-        timeout = httpx.Timeout(60.0)
+        timeout = httpx.Timeout(6.0)
         self.httpx_client = httpx.AsyncClient(timeout=timeout)
 
         # Inner class status
@@ -174,7 +174,13 @@ class RemoteHTCondor:
         #        ...
         #     }
         # }
-        self._scheduler_info: dict = {"workers": {}}
+        self._scheduler_info: dict = {
+            "type": "Scheduler",
+            "id": None,
+            "address": "",
+            "services": {},
+            "workers": {},
+        }
         self.scheduler_address: str = ""
         self.dashboard_link: str = ""
 
@@ -239,10 +245,11 @@ class RemoteHTCondor:
                     )
                     try:
                         msg = self.start_sched_process_q.get_nowait()
+                        num_points = (self._job_status.count(".") + 1) % 4
                         if msg == "SCHEDULERJOB==IDLE":
-                            self._job_status = "Job is idle"
+                            self._job_status = "Job is idle" + "." * num_points
                         elif msg == "SCHEDULERJOB==HOLD":
-                            self._job_status = "Job is hold"
+                            self._job_status = "Job is hold" + "." * num_points
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
                             self._job_status = "Waiting for connection"
@@ -296,24 +303,22 @@ class RemoteHTCondor:
         if resp.status_code != 200:
             return self._scheduler_info
 
-        self._scheduler_info = {
-            "type": "Scheduler",
-            "id": None,
-            "address": f"tcp://127.0.0.1:{self.sched_port}",
-            "services": {"dashboard": self.dash_port},
-            "workers": {},
-        }
-
-        # Get scheduler ID
-        target_url = f"http://127.0.0.1:{self.controller_port}/schedulerID"
-        logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
+        if self._scheduler_info["address"] == "":
+            self._scheduler_info["address"] = f"tcp://127.0.0.1:{self.sched_port}"
+        if self._scheduler_info["services"] == {}:
+            self._scheduler_info["services"] = {"dashboard": self.dash_port}
 
         try:
-            resp = requests.get(target_url)
-            logger.debug(
-                f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
-            )
-            self._scheduler_info["id"] = resp.text
+            if self._scheduler_info["id"] is None:
+                # Get scheduler ID
+                target_url = f"http://127.0.0.1:{self.controller_port}/schedulerID"
+                logger.debug(f"[Scheduler][scheduler_info][url: {target_url}]")
+
+                resp = requests.get(target_url)
+                logger.debug(
+                    f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
+                )
+                self._scheduler_info["id"] = resp.text
 
             # Update the worker specs
             target_url = f"http://127.0.0.1:{self.controller_port}/workerSpec"
@@ -323,7 +328,8 @@ class RemoteHTCondor:
             logger.debug(
                 f"[Scheduler][scheduler_info][resp({resp.status_code}): {resp.text}]"
             )
-            self._scheduler_info["workers"] = json.loads(resp.text)
+            if resp.status_code != 304:
+                self._scheduler_info["workers"] = json.loads(resp.text)
         except requests.RequestException as exc:
             logger.debug(f"[Scheduler][scheduler_info][error: {exc}]")
             self._job_status = "Connection error..."
@@ -562,6 +568,14 @@ class RemoteHTCondor:
                 )
 
                 self.connection_process_q.put("STOP")
+
+            self._scheduler_info: dict = {
+                "type": "Scheduler",
+                "id": None,
+                "address": "",
+                "services": {},
+                "workers": {},
+            }
 
             self.state = State.idle
 
