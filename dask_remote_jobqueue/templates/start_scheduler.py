@@ -8,6 +8,7 @@ import logging
 import math
 import os
 from contextlib import suppress
+from inspect import isawaitable
 from multiprocessing import Process, Queue
 from subprocess import STDOUT, check_output
 from time import sleep
@@ -173,7 +174,7 @@ class SchedulerProc(Process):
             cores=1,
             memory="2 GiB",  # ref: https://github.com/dask/dask/blob/e4799c0498b5e5877705bb5542d8d01116ee1320/dask/utils.py#L1404
             disk="1 GB",
-            scheduler_options=scheduler_options_vars,
+            scheduler_options={"host": ":{}".format(sched_port)},
             job_extra=job_extra_vars,
             # silence_logs="debug",
             local_directory="./scratch",
@@ -246,6 +247,12 @@ class SchedulerProc(Process):
                 scheduler_logs: list[tuple] = self.cluster.scheduler.get_logs()
                 worker_logs: dict = self.cluster.scheduler.get_worker_logs()
                 nanny_logs: dict = self.cluster.scheduler.get_worker_logs(nanny=True)
+
+                if isawaitable(worker_logs):
+                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+                    worker_logs = cur_loop.run_until_complete(worker_logs)
+                    nanny_logs = cur_loop.run_until_complete(nanny_logs)
+
                 self.controller_q.put(
                     {
                         "cluster_logs": cluster_logs,
