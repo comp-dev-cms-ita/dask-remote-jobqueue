@@ -413,7 +413,7 @@ class RemoteHTCondor:
                 )
                 logger.debug("[_make_connections][Start connection process]")
                 self.connection_process.start()
-                await asyncio.sleep(1)
+                await asyncio.sleep(14)
 
             logger.debug("[_make_connections][Wait for queue...]")
             started_tunnels = ""
@@ -449,8 +449,6 @@ class RemoteHTCondor:
             logger.debug(
                 f"[_make_connections][controller_address: http://localhost:{self.controller_port}]"
             )
-
-            await asyncio.sleep(14.0)
 
             for attempt in range(10):
                 logger.debug(f"[_make_connections][attempt: {attempt}]")
