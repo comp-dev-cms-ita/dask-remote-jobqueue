@@ -612,9 +612,12 @@ class ScaleJobHandler(tornado.web.RequestHandler):
 
     def get(self):
         num_jobs = int(self.get_argument("num"))
-        logger.debug(f"[ScaleJobHandler][send][op: scale_jobs][num: {num_jobs}]")
-        self.sched_q.put({"op": "scale_jobs", "num": num_jobs})
-        self.write(f"scaled jobs to: {num_jobs}")
+        if num_jobs < 0:
+            self.write(f"abort scaling: {num_jobs}")
+        else:
+            logger.debug(f"[ScaleJobHandler][send][op: scale_jobs][num: {num_jobs}]")
+            self.sched_q.put({"op": "scale_jobs", "num": num_jobs})
+            self.write(f"scaled jobs to: {num_jobs}")
 
     def prepare(self):
         logger.debug(self.request.arguments)
@@ -640,11 +643,14 @@ class ScaleWorkerHandler(tornado.web.RequestHandler):
 
     def get(self):
         num_workers = int(self.get_argument("num"))
-        logger.debug(
-            f"[ScaleWorkerHandler][send][op: scale_workers][num: {num_workers}]"
-        )
-        self.sched_q.put({"op": "scale_workers", "num": num_workers})
-        self.write(f"scaled workers to: {num_workers}")
+        if num_workers < 0:
+            self.write(f"abort scaling: {num_workers}")
+        else:
+            logger.debug(
+                f"[ScaleWorkerHandler][send][op: scale_workers][num: {num_workers}]"
+            )
+            self.sched_q.put({"op": "scale_workers", "num": num_workers})
+            self.write(f"scaled workers to: {num_workers}")
 
     def prepare(self):
         logger.debug(self.request.arguments)
