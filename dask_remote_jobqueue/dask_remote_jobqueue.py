@@ -82,7 +82,7 @@ class RemoteHTCondor:
         logger.info("[RemoteHTCondor][init]")
 
         # httpx client
-        timeout = httpx.Timeout(6.0)
+        timeout = httpx.Timeout(5.0)
         self.httpx_client = httpx.AsyncClient(timeout=timeout)
 
         # Inner class status
