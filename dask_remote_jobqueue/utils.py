@@ -133,6 +133,7 @@ class ConnectionLoop(Process):
             target_url = f"http://localhost:{self.controller_port}"
 
             logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
+            attempts = 0
             while running:
                 await asyncio.sleep(14.0)
                 logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
@@ -160,8 +161,14 @@ class ConnectionLoop(Process):
                         running = False
                     except httpx.TimeoutException as exc:
                         logger.debug(
-                            f"[ConnectionLoop][check_connection][error: {exc}]"
+                            f"[ConnectionLoop][check_connection][timeout][error: {exc}]"
                         )
+                        if attempts == 6:
+                            running = False
+                        else:
+                            attempts += 1
+                    else:
+                        attempts = 0
                 try:
                     res = self.queue.get(timeout=0.42)
                     logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
