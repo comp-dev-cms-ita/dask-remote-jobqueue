@@ -31,7 +31,7 @@ class ConnectionManager(Process):
         dash_port: int = -1,
         controller_port: int = -1,
     ):
-        logger.debug(f"[ConnectionManager][init]")
+        logger.debug("[ConnectionManager][init]")
         super().__init__()
         self.cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
         asyncio.set_event_loop(self.cur_loop)
@@ -141,7 +141,7 @@ class ConnectionManager(Process):
         logger.debug(f"[ConnectionManager][job_status: {job_status}]")
         if job_status != 2:
             logger.debug(
-                f"[ConnectionManager][run][error: Scheduler Job exited with errors]"
+                "[ConnectionManager][run][error: Scheduler Job exited with errors]"
             )
             # self.connection_manager_q.put("ERROR - Scheduler Job exited with errors")
 
