@@ -316,6 +316,7 @@ class ConnectionLoop(Process):
         while running:
             await asyncio.sleep(14.0)
             logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
+
             # if self._tunnel_running:
             #     try:
             #         logger.debug("[ConnectionLoop][check_connection]")
