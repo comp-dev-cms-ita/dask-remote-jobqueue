@@ -517,14 +517,7 @@ class RemoteHTCondor:
         return connection_checks
 
     def close(self):
-        if self.asynchronous:
-            return self._close()
-
-        cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-        return cur_loop.run_until_complete(self._close())
-
-    async def _close(self):
-        if self.state != State.closing:
+        if self.state != State.closing and self.state != State.idle:
             logger.info("[RemoteHTCondor][Closing...]")
 
             was_running = self.state == State.running
@@ -539,10 +532,14 @@ class RemoteHTCondor:
                 target_url = f"http://127.0.0.1:{self.controller_port}/scaleZeroAndClose?clusterID={self.cluster_id}"
                 logger.debug(f"[Scheduler][close][url: {target_url}]")
 
-                resp = await self.httpx_client.get(target_url)
-                logger.debug(
-                    f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
-                )
+                try:
+                    resp = requests.get(target_url)
+                    logger.debug(
+                        f"[Scheduler][close][resp({resp.status_code}): {resp.text}]"
+                    )
+                except requests.RequestException as exc:
+                    logger.debug(f"[Scheduler][close][error: {exc}]")
+                    raise
 
                 self.connection_process_q.put("STOP")
 
