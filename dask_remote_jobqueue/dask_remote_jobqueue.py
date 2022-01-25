@@ -95,9 +95,7 @@ class RemoteHTCondor:
         self.connection_manager_q: "Queue" = Queue()
         self.connection_manager: Union["ConnectionManager", None] = None
         self.start_sched_process_q: "Queue" = Queue()
-        self.start_sched_process: "StartDaskScheduler" = StartDaskScheduler(
-            weakref.proxy(self), self.start_sched_process_q, os.environ
-        )
+        self.start_sched_process: Union["StartDaskScheduler", None] = None
 
         # Address of the dask scheduler and its dashboard
         self.address: str = ""
@@ -363,25 +361,26 @@ class RemoteHTCondor:
         if self.state == State.idle:
             self.state = State.start
 
-            if not self.start_sched_process.is_alive():
+            if self.start_sched_process is None:
+                self.start_sched_process = StartDaskScheduler(
+                    weakref.proxy(self), self.start_sched_process_q, os.environ
+                )
+                logger.debug("[_start][start sched process...]")
                 self.start_sched_process.start()
-
-            await asyncio.sleep(1.0)
-            logger.debug(
-                f"[_start][start_sched_process: {self.start_sched_process.is_alive()}]"
-            )
 
             logger.debug("[_start][waiting for cluster id...]")
             self.cluster_id = ""
 
             while not self.cluster_id:
+                proc_alive = self.start_sched_process.is_alive()
+                logger.debug(f"[_start][start_sched_process: {proc_alive}]")
                 try:
                     msg = self.start_sched_process_q.get_nowait()
                     logger.debug(f"[_start][msg: {msg}]")
                     self.cluster_id = msg
                 except Empty:
                     logger.debug("[_start][queue was empty...]")
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(2.4)
 
             logger.debug(f"[_start][cluster_id: {self.cluster_id}")
 
