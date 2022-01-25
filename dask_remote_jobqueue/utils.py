@@ -65,132 +65,131 @@ class ConnectionLoop(Process):
 
         self.loop.create_task(_close_connection())
 
-    def run(self):
-        async def forward_connection():
-            logger.debug(
-                f"[ConnectionLoop][connect][{self.ssh_url}][{self.ssh_url_port}][{self.token}]"
+    async def forward_connection(self):
+        logger.debug(
+            f"[ConnectionLoop][connect][{self.ssh_url}][{self.ssh_url_port}][{self.token}]"
+        )
+        try:
+            # Ref: https://asyncssh.readthedocs.io/
+            self.connection = await asyncssh.connect(
+                host=self.ssh_url,
+                port=self.ssh_url_port,
+                username=self.username,
+                password=self.token,
+                known_hosts=None,
             )
-            try:
-                # Ref: https://asyncssh.readthedocs.io/
-                self.connection = await asyncssh.connect(
-                    host=self.ssh_url,
-                    port=self.ssh_url_port,
-                    username=self.username,
-                    password=self.token,
-                    known_hosts=None,
-                )
-                self.connection.set_keepalive(interval=14.0, count_max=10)
+            self.connection.set_keepalive(interval=14.0, count_max=10)
 
-                logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
-                self.f_sched_conn = await self.connection.forward_local_port(
-                    "127.0.0.1",
-                    self.sched_port,
-                    "127.0.0.1",
-                    self.sched_port,
-                )
-
-                logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
-                self.f_dash_port = await self.connection.forward_local_port(
-                    "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
-                )
-
-                logger.debug(
-                    f"[ConnectionLoop][connect][controller][{self.controller_port}]"
-                )
-                self.f_controller_port = await self.connection.forward_local_port(
-                    "127.0.0.1",
-                    self.controller_port,
-                    "127.0.0.1",
-                    self.controller_port,
-                )
-
-                self._tunnel_running = True
-
-                if self.queue:
-                    self.queue.put("OK")
-
-            except (OSError, asyncssh.Error) as exc:
-                logger.debug(f"[ConnectionLoop][error][create connection][{exc}]")
-                self.queue.put("ERROR")
-
-                return
-
-            await self.f_sched_conn.wait_closed()
-            logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
-            await self.f_dash_port.wait_closed()
-            logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
-            await self.f_controller_port.wait_closed()
-            logger.debug(
-                f"[ConnectionLoop][closed][controller][{self.controller_port}]"
+            logger.debug(f"[ConnectionLoop][connect][scheduler][{self.sched_port}]")
+            self.f_sched_conn = await self.connection.forward_local_port(
+                "127.0.0.1",
+                self.sched_port,
+                "127.0.0.1",
+                self.sched_port,
             )
 
-            await self.connection.wait_closed()
+            logger.debug(f"[ConnectionLoop][connect][dashboard][{self.dash_port}]")
+            self.f_dash_port = await self.connection.forward_local_port(
+                "127.0.0.1", self.dash_port, "127.0.0.1", self.dash_port
+            )
 
-        async def _main_loop():
-            running: bool = True
-            timeout = httpx.Timeout(60.0)
-            client = httpx.AsyncClient(timeout=timeout)
-            target_url = f"http://localhost:{self.controller_port}"
+            logger.debug(
+                f"[ConnectionLoop][connect][controller][{self.controller_port}]"
+            )
+            self.f_controller_port = await self.connection.forward_local_port(
+                "127.0.0.1",
+                self.controller_port,
+                "127.0.0.1",
+                self.controller_port,
+            )
 
+            self._tunnel_running = True
+
+            if self.queue:
+                self.queue.put("OK")
+
+        except (OSError, asyncssh.Error) as exc:
+            logger.debug(f"[ConnectionLoop][error][create connection][{exc}]")
+            self.queue.put("ERROR")
+
+            return
+
+        await self.f_sched_conn.wait_closed()
+        logger.debug(f"[ConnectionLoop][closed][scheduler][{self.sched_port}]")
+        await self.f_dash_port.wait_closed()
+        logger.debug(f"[ConnectionLoop][closed][dashboard][{self.dash_port}]")
+        await self.f_controller_port.wait_closed()
+        logger.debug(f"[ConnectionLoop][closed][controller][{self.controller_port}]")
+
+        await self.connection.wait_closed()
+
+    async def main_loop(self):
+        running: bool = True
+        # timeout = httpx.Timeout(60.0)
+        # client = httpx.AsyncClient(timeout=timeout)
+        # target_url = f"http://localhost:{self.controller_port}"
+
+        logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
+        # attempts = 0
+        while running:
+            await asyncio.sleep(14.0)
             logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
-            attempts = 0
-            while running:
-                await asyncio.sleep(14.0)
-                logger.debug(f"[ConnectionLoop][running: {self._tunnel_running}]")
-                if self._tunnel_running:
-                    try:
-                        logger.debug("[ConnectionLoop][check_connection]")
-                        logger.debug(
-                            f"[ConnectionLoop][check_controller][{target_url}]"
-                        )
-                        resp = await client.get(target_url)
-                        logger.debug(
-                            f"[ConnectionLoop][check_controller][resp({resp.status_code})]"
-                        )
-                        if resp.status_code != 200:
-                            logger.debug(
-                                "[ConnectionLoop][check_controller][ERROR][Cannot connect to controller]"
-                            )
-                            running = False
-                        else:
-                            logger.debug("[ConnectionLoop][check_connection][OK]")
-                    except (OSError, asyncssh.Error) as exc:
-                        logger.debug(
-                            f"[ConnectionLoop][check_connection][error: {exc}]"
-                        )
-                        running = False
-                    except httpx.TimeoutException as exc:
-                        logger.debug(
-                            f"[ConnectionLoop][check_connection][timeout][error: {exc}]"
-                        )
-                        if attempts == 6:
-                            running = False
-                        else:
-                            attempts += 1
-                    else:
-                        attempts = 0
-                try:
-                    res = self.queue.get(timeout=0.42)
-                    logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
-                    if res and res == "STOP":
-                        running = False
-                except Empty:
-                    pass
+            # if self._tunnel_running:
+            #     try:
+            #         logger.debug("[ConnectionLoop][check_connection]")
+            #         logger.debug(
+            #             f"[ConnectionLoop][check_controller][{target_url}]"
+            #         )
+            #         resp = await client.get(target_url)
+            #         logger.debug(
+            #             f"[ConnectionLoop][check_controller][resp({resp.status_code})]"
+            #         )
+            #         if resp.status_code != 200:
+            #             logger.debug(
+            #                 "[ConnectionLoop][check_controller][ERROR][Cannot connect to controller]"
+            #             )
+            #             running = False
+            #         else:
+            #             logger.debug("[ConnectionLoop][check_connection][OK]")
+            #     except (OSError, asyncssh.Error) as exc:
+            #         logger.debug(
+            #             f"[ConnectionLoop][check_connection][error: {exc}]"
+            #         )
+            #         running = False
+            #     except httpx.TimeoutException as exc:
+            #         logger.debug(
+            #             f"[ConnectionLoop][check_connection][timeout][error: {exc}]"
+            #         )
+            #         if attempts == 6:
+            #             running = False
+            #         else:
+            #             attempts += 1
+            #     else:
+            #         attempts = 0
+            try:
+                res = self.queue.get(timeout=0.42)
+                logger.debug(f"[ConnectionLoop][Queue][res: {res}]")
+                if res and res == "STOP":
+                    running = False
+            except Empty:
+                pass
 
-            self.stop()
-            logger.debug("[ConnectionLoop][Exiting]")
-            for i in reversed(range(6)):
-                logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
-                await asyncio.sleep(1)
+        self.stop()
 
-            await client.aclose()
+        logger.debug("[ConnectionLoop][Exiting]")
+        for i in reversed(range(6)):
+            logger.debug(f"[ConnectionLoop][Exiting in ... {i}]")
+            await asyncio.sleep(1)
 
-            logger.debug("[ConnectionLoop][DONE]")
+        # await client.aclose()
 
+        logger.debug("[ConnectionLoop][DONE]")
+
+    def run(self):
         logger.debug("[ConnectionLoop][create task]")
-        self.tasks.append(self.cur_loop.create_task(forward_connection()))
+        self.tasks.append(self.cur_loop.create_task(self.forward_connection()))
         logger.debug("[ConnectionLoop][run main loop until complete]")
-        self.cur_loop.run_until_complete(_main_loop())
+        self.cur_loop.run_until_complete(self.main_loop())
         logger.debug("[ConnectionLoop][exit]")
 
 
