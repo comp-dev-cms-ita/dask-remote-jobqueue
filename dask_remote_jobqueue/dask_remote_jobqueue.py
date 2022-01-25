@@ -253,7 +253,7 @@ class RemoteHTCondor:
                             self._job_status = "Job is hold" + "." * num_points
                         elif msg == "SCHEDULERJOB==RUNNING":
                             self.state = State.scheduler_up
-                            self._job_status = "Waiting for connection"
+                            self._job_status = "Start connection"
                     except Empty:
                         logger.debug("[Scheduler][scheduler_info][empty queue...]")
 
@@ -401,6 +401,8 @@ class RemoteHTCondor:
             logger.debug(f"[_make_connections][username: {self.name}]")
             logger.debug(f"[_make_connections][password: {self.token}]")
 
+            self._job_status = "Start connection process"
+
             if not self.connection_process:
                 self.connection_process = ConnectionLoop(
                     self.connection_process_q,
@@ -414,7 +416,6 @@ class RemoteHTCondor:
                 )
                 logger.debug("[_make_connections][Start connection process]")
                 self.connection_process.start()
-                await asyncio.sleep(14)
 
             logger.debug("[_make_connections][Wait for queue...]")
             started_tunnels = ""
@@ -451,20 +452,29 @@ class RemoteHTCondor:
                 f"[_make_connections][controller_address: http://localhost:{self.controller_port}]"
             )
 
-            for attempt in range(10):
-                logger.debug(f"[_make_connections][attempt: {attempt}]")
-                if await self._connection_ok(1):
-                    logger.debug("[_make_connections][connection_done]")
-                    self.state = State.running
-                    if connection_done_event:
-                        logger.debug("[_make_connections][connection_done_event: set]")
-                        connection_done_event.set()
+            attempt = 0
+            logger.debug(f"[_make_connections][attempt: {attempt}]")
+            self._job_status = f"Waiting for connection (attempt {attempt})"
+            connected = await self._connection_ok(1)
 
+            while not connected:
+                attempt += 1
+                connected = await self._connection_ok(1)
+                self._job_status = f"Waiting for connection (attempt {attempt})"
+
+                if attempt >= 42:
+                    self.state = State.error
+                    self._job_status = "Error on make connection..."
                     break
+
                 await asyncio.sleep(6.0)
+
             else:
-                self.state = State.error
-                self._job_status = "Error on make connection..."
+                logger.debug("[_make_connections][connection_done]")
+                self.state = State.running
+                if connection_done_event:
+                    logger.debug("[_make_connections][connection_done_event: set]")
+                    connection_done_event.set()
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
         logger.debug("[_connection_ok][run][Check job status]")
@@ -494,11 +504,14 @@ class RemoteHTCondor:
             return False
 
         logger.debug("[_connection_ok][Test connections...]")
-
         connection_checks = True
 
         for attempt in range(attempts):
+            await asyncio.sleep(2.4)
+
+            connection_checks = True
             logger.debug(f"[_connection_ok][Test connections: attempt {attempt}]")
+
             try:
                 target_url = f"http://localhost:{self.controller_port}"
                 logger.debug(f"[_connection_ok][check controller][{target_url}]")
@@ -508,7 +521,7 @@ class RemoteHTCondor:
                 )
                 if resp.status_code != 200:
                     logger.debug("[_connection_ok][Cannot connect to controller]")
-            except Exception as ex:
+            except (OSError, httpx.HTTPError) as ex:
                 logger.debug(f"[_connection_ok][check controller][exception][{ex}]")
                 connection_checks = connection_checks and False
             else:
@@ -524,7 +537,7 @@ class RemoteHTCondor:
                 )
                 if resp.status_code != 200:
                     logger.debug("[_connection_ok][Cannot connect to dashboard]")
-            except Exception as ex:
+            except (OSError, httpx.HTTPError) as ex:
                 logger.debug(f"[_connection_ok][check dashboard][exception][{ex}]")
                 connection_checks = connection_checks and False
             else:
@@ -534,7 +547,6 @@ class RemoteHTCondor:
                 break
 
             connection_checks = True
-            await asyncio.sleep(2.4)
 
         return connection_checks
 
