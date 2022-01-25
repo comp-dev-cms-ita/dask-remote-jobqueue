@@ -282,14 +282,14 @@ class RemoteHTCondor:
                     logger.debug(
                         "[Scheduler][scheduler_info][waiting for connection...]"
                     )
-                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
+                    # cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
 
-                    async def sleep_loop():
-                        await asyncio.sleep(1.0)
+                    # async def sleep_loop():
+                    #     await asyncio.sleep(1.0)
 
-                    cur_loop.create_task(sleep_loop())
-                    num_points = (self._job_status.count(".") + 1) % 4
-                    self._job_status = "Waiting for connection" + "." * num_points
+                    # cur_loop.create_task(sleep_loop())
+                    # num_points = (self._job_status.count(".") + 1) % 4
+                    # self._job_status = "Waiting for connection" + "." * num_points
 
             return self._scheduler_info
 
@@ -453,14 +453,15 @@ class RemoteHTCondor:
             )
 
             attempt = 0
-            logger.debug(f"[_make_connections][attempt: {attempt}]")
-            self._job_status = f"Waiting for connection (attempt {attempt})"
             connected = await self._connection_ok(1)
+            self._job_status = f"Waiting for connection (attempt {attempt})"
+            logger.debug(f"[_make_connections][attempt: {attempt}][{connected}]")
 
             while not connected:
                 attempt += 1
                 connected = await self._connection_ok(1)
                 self._job_status = f"Waiting for connection (attempt {attempt})"
+                logger.debug(f"[_make_connections][attempt: {attempt}][{connected}]")
 
                 if attempt >= 42:
                     self.state = State.error
@@ -469,20 +470,29 @@ class RemoteHTCondor:
 
                 await asyncio.sleep(6.0)
 
+            logger.debug("[_make_connections][connection_done]")
+
+            if connection_done_event:
+                logger.debug("[_make_connections][connection_done_event: set]")
+                connection_done_event.set()
             else:
-                logger.debug("[_make_connections][connection_done]")
                 self.state = State.running
-                if connection_done_event:
-                    logger.debug("[_make_connections][connection_done_event: set]")
-                    connection_done_event.set()
+                self._job_status = "Running"
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
         logger.debug("[_connection_ok][run][Check job status]")
         cmd = "condor_q {}.0 -json".format(self.cluster_id)
         logger.debug(f"[_connection_ok][run][{cmd}]")
 
-        cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
-        logger.debug(f"[_connection_ok][run][{cmd_out.decode('ascii')}]")
+        cmd_out = ""
+        try:
+            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+            logger.debug(f"[_connection_ok][run][{cmd_out.decode('ascii')}]")
+        except Exception as cur_ex:
+            logger.debug(f"[_connection_ok][run][{cur_ex}][{cmd_out}]")
+            self._job_status = "Failed to condor_q..."
+            self.state = State.error
+            return False
 
         try:
             classAd = json.loads(cmd_out)
@@ -491,7 +501,6 @@ class RemoteHTCondor:
             logger.debug(f"[_connection_ok][run][{cur_ex}][{cmd_out}]")
             self._job_status = "Failed to decode claasAd..."
             self.state = State.error
-
             return False
 
         job_status = classAd[0].get("JobStatus")
