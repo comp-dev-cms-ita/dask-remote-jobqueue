@@ -373,7 +373,7 @@ class RemoteHTCondor:
 
             while not self.cluster_id:
                 proc_alive = self.start_sched_process.is_alive()
-                logger.debug(f"[_start][start_sched_process: {proc_alive}]")
+                logger.debug(f"[_start][sched_process alive: {proc_alive}]")
                 try:
                     msg = self.start_sched_process_q.get_nowait()
                     logger.debug(f"[_start][msg: {msg}]")
