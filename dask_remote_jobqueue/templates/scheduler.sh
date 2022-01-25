@@ -4,11 +4,18 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+mkdir -p "$(pwd)/.oidc-agent"
+
+OIDC_CONFIG_DIR="$(pwd)/.oidc-agent"
+export OIDC_CONFIG_DIR
+
 chmod +x job_submit.sh
 chmod +x job_rm.sh
 
 # Configure oidc-agent for user token management
 # Ref: https://indigo-dc.gitbook.io/oidc-agent/user/oidc-keychain
+echo -e "\nOIDC_CONFIG_DIR=\"$(pwd)/.oidc-agent\"" >>.bashrc
+echo -e "\nexport OIDC_CONFIG_DIR" >>.bashrc
 echo -e "\neval \`oidc-keychain\`" >>.bashrc
 
 eval $(oidc-keychain)
