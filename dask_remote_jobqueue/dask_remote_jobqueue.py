@@ -119,7 +119,7 @@ class RemoteHTCondor:
         self.sitename: str = sitename
 
         # Jupyter env vars
-        self.name = (
+        self.username = (
             os.environ.get("JUPYTERHUB_USER", user) + f"-{self.sched_port}.dask-ssh"
         )
         self.dash_hostname = (
@@ -420,7 +420,7 @@ class RemoteHTCondor:
                     cluster_id=self.cluster_id,
                     ssh_namespace=self.ssh_namespace,
                     ssh_url_port=self.ssh_url_port,
-                    username=self.name,
+                    username=self.username,
                     token=self.token,
                     sched_port=self.sched_port,
                     dash_port=self.dash_port,

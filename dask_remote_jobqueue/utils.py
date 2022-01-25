@@ -54,14 +54,14 @@ class ConnectionManager(Process):
 
         logger.debug("[ConnectionManager][Create ssh tunnel")
         logger.debug(f"[ConnectionManager][url: {self.ssh_url}]")
-        logger.debug(f"[ConnectionManager][username: {self.name}]")
+        logger.debug(f"[ConnectionManager][username: {self.username}]")
         logger.debug(f"[ConnectionManager][password: {self.token}]")
 
         connection_process = ConnectionLoop(
             self.connection_process_q,
             ssh_url=self.ssh_url,
             ssh_url_port=self.ssh_url_port,
-            username=self.name,
+            username=self.username,
             token=self.token,
             sched_port=self.sched_port,
             dash_port=self.dash_port,
