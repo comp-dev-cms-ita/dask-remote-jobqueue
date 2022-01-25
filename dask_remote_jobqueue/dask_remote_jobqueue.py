@@ -404,6 +404,8 @@ class RemoteHTCondor:
         logger.debug(
             f"[_post_connection][controller_address: http://localhost:{self.controller_port}]"
         )
+        
+        self.connection_manager = None
 
     async def _make_connections(self):
         if self.state == State.scheduler_up:
