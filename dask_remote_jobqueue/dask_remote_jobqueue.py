@@ -22,7 +22,7 @@ import httpx
 import requests
 from loguru import logger
 
-from .utils import ConnectionLoop, StartDaskScheduler
+from .utils import ConnectionManager, StartDaskScheduler
 
 
 class State(Enum):
@@ -92,7 +92,8 @@ class RemoteHTCondor:
         self.asynchronous: bool = asynchronous
 
         self.connection_process_q: "Queue" = Queue()
-        self.connection_process: Union["ConnectionLoop", None] = None
+        self.connection_manager_q: "Queue" = Queue()
+        self.connection_manager: Union["ConnectionManager", None] = None
         self.start_sched_process_q: "Queue" = Queue()
         self.start_sched_process: "StartDaskScheduler" = StartDaskScheduler(
             weakref.proxy(self), self.start_sched_process_q, os.environ
@@ -125,7 +126,7 @@ class RemoteHTCondor:
             os.environ.get("JUPYTERHUB_USER", user) + f"-{self.dash_port}.dash.dask-ssh"
         )
 
-        self.sshNamespace = os.environ.get("SSH_NAMESPACE", ssh_namespace)
+        self.ssh_namespace = os.environ.get("SSH_NAMESPACE", ssh_namespace)
 
         # HTCondor vars
         self.htc_ca = "./ca.crt"
@@ -260,36 +261,28 @@ class RemoteHTCondor:
                 elif self.state == State.scheduler_up:
                     logger.debug("[Scheduler][scheduler_info][make connections...]")
                     cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-                    connection_done_event = asyncio.Event()
-                    cur_loop.create_task(self._make_connections(connection_done_event))
-
-                    async def callback_waiting_connection(connection_done_event):
-                        await connection_done_event.wait()
-                        is_ok = await self._connection_ok()
-                        if is_ok:
-                            self.state = State.running
-                            self._job_status = "Running"
-                        else:
-                            self.state = State.error
-                            self._job_status = "Error on connection..."
-                            self.dashboard_link = ""
-
-                    cur_loop.create_task(
-                        callback_waiting_connection(connection_done_event)
-                    )
+                    cur_loop.create_task(self._make_connections())
 
                 elif self.state == State.waiting_connections:
                     logger.debug(
                         "[Scheduler][scheduler_info][waiting for connection...]"
                     )
-                    cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-
-                    async def sleep_loop():
-                        await asyncio.sleep(6.0)
-
-                    cur_loop.create_task(sleep_loop())
-                    # num_points = (self._job_status.count(".") + 1) % 4
-                    # self._job_status = "Waiting for connection" + "." * num_points
+                    try:
+                        msg = self.connection_manager_q.get_nowait()
+                        if msg == "OK":
+                            cur_loop: "asyncio.AbstractEventLoop" = (
+                                asyncio.get_event_loop()
+                            )
+                            self._post_connection()
+                            self.state = State.running
+                            self._job_status = "Running"
+                        else:
+                            self.state = State.error
+                            self._job_status = msg
+                    except Empty:
+                        logger.debug("[Scheduler][scheduler_info][empty queue...]")
+                        num_points = (self._job_status.count(".") + 1) % 4
+                        self._job_status = "Waiting for connection" + "." * num_points
 
             return self._scheduler_info
 
@@ -349,7 +342,16 @@ class RemoteHTCondor:
             msg = self.start_sched_process_q.get()
 
         self.state = State.scheduler_up
-        return cur_loop.run_until_complete(self._make_connections())
+        cur_loop.run_until_complete(self._make_connections())
+
+        msg = self.connection_manager_q.get()
+        if msg != "OK":
+            self.state = State.error
+            self._job_status = msg
+        else:
+            self._post_connection()
+            self.state = State.running
+            self._job_status = "Running"
 
     async def _start(self):
         """Start the dask cluster scheduler.
@@ -387,26 +389,36 @@ class RemoteHTCondor:
                 self._job_status = "Job submitted"
                 logger.info("[RemoteHTCondor][Job submitted]")
 
-    async def _make_connections(self, connection_done_event: asyncio.Event = None):
+    def _post_connection(self):
+        self.address = "localhost:{}".format(self.sched_port)
+        self.dashboard_address = "http://localhost:{}".format(self.dash_port)
+
+        logger.debug(f"[_post_connection][address: {self.address}]")
+        logger.debug(f"[_post_connection][dashboard_address: {self.dashboard_address}]")
+
+        self.scheduler_address = self.address
+        self.dashboard_link = f"{self.dashboard_address}/status"
+
+        logger.debug(f"[_post_connection][scheduler_address: {self.scheduler_address}]")
+        logger.debug(f"[_post_connection][dashboard_link: {self.dashboard_link}]")
+        logger.debug(
+            f"[_post_connection][controller_address: http://localhost:{self.controller_port}]"
+        )
+
+    async def _make_connections(self):
         if self.state == State.scheduler_up:
             logger.info("[RemoteHTCondor][Make connections]")
 
             self.state = State.waiting_connections
 
-            # Prepare the ssh tunnel
-            ssh_url = f"ssh-listener.{self.sshNamespace}.svc.cluster.local"
+            if not self.connection_manager:
+                self._job_status = "Start connection manager"
 
-            logger.debug("[_make_connections][Create ssh tunnel")
-            logger.debug(f"[_make_connections][url: {ssh_url}]")
-            logger.debug(f"[_make_connections][username: {self.name}]")
-            logger.debug(f"[_make_connections][password: {self.token}]")
-
-            self._job_status = "Start connection process"
-
-            if not self.connection_process:
-                self.connection_process = ConnectionLoop(
+                self.connection_manager = ConnectionManager(
+                    self.connection_manager_q,
                     self.connection_process_q,
-                    ssh_url=ssh_url,
+                    cluster_id=self.cluster_id,
+                    ssh_namespace=self.ssh_namespace,
                     ssh_url_port=self.ssh_url_port,
                     username=self.name,
                     token=self.token,
@@ -414,70 +426,8 @@ class RemoteHTCondor:
                     dash_port=self.dash_port,
                     controller_port=self.controller_port,
                 )
-                logger.debug("[_make_connections][Start connection process]")
-                self.connection_process.start()
-
-            logger.debug("[_make_connections][Wait for queue...]")
-            started_tunnels = ""
-            while not started_tunnels:
-                try:
-                    started_tunnels = self.connection_process_q.get_nowait()
-                except Empty:
-                    logger.debug("[_make_connections][queue was empty...]")
-                await asyncio.sleep(2.0)
-
-            logger.debug(f"[_make_connections][response: {started_tunnels}]")
-            if started_tunnels != "OK":
-                self.state = State.error
-                self._job_status = "Error on make tunnel..."
-
-                return
-
-            self.address = "localhost:{}".format(self.sched_port)
-            self.dashboard_address = "http://localhost:{}".format(self.dash_port)
-
-            logger.debug(f"[_make_connections][address: {self.address}]")
-            logger.debug(
-                f"[_make_connections][dashboard_address: {self.dashboard_address}]"
-            )
-
-            self.scheduler_address = self.address
-            self.dashboard_link = f"{self.dashboard_address}/status"
-
-            logger.debug(
-                f"[_make_connections][scheduler_address: {self.scheduler_address}]"
-            )
-            logger.debug(f"[_make_connections][dashboard_link: {self.dashboard_link}]")
-            logger.debug(
-                f"[_make_connections][controller_address: http://localhost:{self.controller_port}]"
-            )
-
-            attempt = 0
-            connected = await self._connection_ok(1)
-            self._job_status = f"Waiting for connection (attempt {attempt})"
-            logger.debug(f"[_make_connections][attempt: {attempt}][{connected}]")
-
-            while not connected:
-                attempt += 1
-                connected = await self._connection_ok(1)
-                self._job_status = f"Waiting for connection (attempt {attempt})"
-                logger.debug(f"[_make_connections][attempt: {attempt}][{connected}]")
-
-                if attempt >= 42:
-                    self.state = State.error
-                    self._job_status = "Error on make connection..."
-                    break
-
-                await asyncio.sleep(6.0)
-
-            logger.debug("[_make_connections][connection_done]")
-
-            if connection_done_event:
-                logger.debug("[_make_connections][connection_done_event: set]")
-                connection_done_event.set()
-            else:
-                self.state = State.running
-                self._job_status = "Running"
+                logger.debug("[_make_connections][Start connection manager]")
+                self.connection_manager.start()
 
     async def _connection_ok(self, attempts: int = 6) -> bool:
         logger.debug("[_connection_ok][run][Check job status]")

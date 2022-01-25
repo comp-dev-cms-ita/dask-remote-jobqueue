@@ -11,8 +11,190 @@ from typing import Union
 
 import asyncssh
 import httpx
+import requests
 from jinja2 import Environment, PackageLoader, select_autoescape
 from loguru import logger
+
+
+class ConnectionManager(Process):
+    def __init__(
+        self,
+        connection_manager_q: Queue,
+        connection_process_q: Queue,
+        cluster_id: str = "",
+        ssh_namespace: str = "",
+        ssh_url: str = "",
+        ssh_url_port: int = -1,
+        username: str = "",
+        token: str = "",
+        sched_port: int = -1,
+        dash_port: int = -1,
+        controller_port: int = -1,
+    ):
+        logger.debug(f"[ConnectionManager][init]")
+        super().__init__()
+        self.cur_loop: "asyncio.AbstractEventLoop" = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.cur_loop)
+        self.cluster_id: str = cluster_id
+        self.ssh_namespace: str = ssh_namespace
+        self.ssh_url: str = f"ssh-listener.{self.ssh_namespace}.svc.cluster.local"
+        self.ssh_url_port: int = ssh_url_port
+        self.username: str = username
+        self.token: str = token
+        self.sched_port: int = sched_port
+        self.dash_port: int = dash_port
+        self.controller_port: int = controller_port
+        self.tasks: list = []
+        self.connection_manager_q: "Queue" = connection_manager_q
+        self.connection_process_q: "Queue" = connection_process_q
+        self.dashboard_link: str = ""
+
+    def run(self):
+        # Prepare the ssh tunnel
+
+        logger.debug("[ConnectionManager][Create ssh tunnel")
+        logger.debug(f"[ConnectionManager][url: {self.ssh_url}]")
+        logger.debug(f"[ConnectionManager][username: {self.name}]")
+        logger.debug(f"[ConnectionManager][password: {self.token}]")
+
+        connection_process = ConnectionLoop(
+            self.connection_process_q,
+            ssh_url=self.ssh_url,
+            ssh_url_port=self.ssh_url_port,
+            username=self.name,
+            token=self.token,
+            sched_port=self.sched_port,
+            dash_port=self.dash_port,
+            controller_port=self.controller_port,
+        )
+        logger.debug("[ConnectionManager][Start connection process]")
+        connection_process.start()
+
+        logger.debug("[ConnectionManager][Wait for queue...]")
+        started_tunnels = self.connection_process_q.get()
+
+        logger.debug(f"[ConnectionManager][response: {started_tunnels}]")
+
+        if started_tunnels != "OK":
+            self.connection_manager_q.put("ERROR - START CONNECTION LOOP")
+            return
+
+        address = "localhost:{}".format(self.sched_port)
+        dashboard_address = "http://localhost:{}".format(self.dash_port)
+
+        logger.debug(f"[ConnectionManager][address: {address}]")
+        logger.debug(f"[ConnectionManager][dashboard_address: {dashboard_address}]")
+
+        scheduler_address = address
+        self.dashboard_link = f"{dashboard_address}/status"
+
+        logger.debug(f"[ConnectionManager][scheduler_address: {scheduler_address}]")
+        logger.debug(f"[ConnectionManager][dashboard_link: {self.dashboard_link}]")
+        logger.debug(
+            f"[ConnectionManager][controller_address: http://localhost:{self.controller_port}]"
+        )
+
+        attempt = 0
+        connected = self._connection_ok(1)
+        logger.debug(f"[ConnectionManager][attempt: {attempt}][{connected}]")
+
+        while not connected:
+            attempt += 1
+            connected = self._connection_ok(1)
+            logger.debug(f"[ConnectionManager][attempt: {attempt}][{connected}]")
+
+            if attempt >= 42:
+                self.connection_manager_q.put(
+                    f"ERROR - ATTEMPT TO CONNECT EXCEEDED # {attempt}"
+                )
+                return
+
+            sleep(6)
+
+        logger.debug("[ConnectionManager][connection_done]")
+
+        self.connection_manager_q.put("OK")
+
+    def _connection_ok(self, attempts: int = 6):
+        logger.debug("[ConnectionManager][run][Check job status]")
+        cmd = "condor_q {}.0 -json".format(self.cluster_id)
+        logger.debug(f"[ConnectionManager][run][{cmd}]")
+
+        cmd_out = ""
+        try:
+            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+            logger.debug(f"[ConnectionManager][run][{cmd_out.decode('ascii')}]")
+        except Exception as cur_ex:
+            logger.debug(f"[ConnectionManager][run][{cur_ex}][{cmd_out}]")
+            # self.connection_manager_q.put("ERROR - Failed to condor_q")
+            return False
+
+        try:
+            classAd = json.loads(cmd_out)
+            logger.debug(f"[ConnectionManager][run][classAd: {classAd}]")
+        except Exception as cur_ex:
+            logger.debug(f"[ConnectionManager][run][{cur_ex}][{cmd_out}]")
+            # self.connection_manager_q.put("ERROR - Failed to decode claasAd")
+            return False
+
+        job_status = classAd[0].get("JobStatus")
+        logger.debug(f"[ConnectionManager][job_status: {job_status}]")
+        if job_status != 2:
+            logger.debug(
+                f"[ConnectionManager][run][error: Scheduler Job exited with errors]"
+            )
+            # self.connection_manager_q.put("ERROR - Scheduler Job exited with errors")
+
+            return False
+
+        logger.debug("[ConnectionManager][Test connections...]")
+        connection_checks: bool = True
+
+        for attempt in range(attempts):
+            sleep(2.4)
+
+            connection_checks = True
+            logger.debug(f"[ConnectionManager][Test connections: attempt {attempt}]")
+
+            try:
+                target_url = f"http://localhost:{self.controller_port}"
+                logger.debug(f"[ConnectionManager][check controller][{target_url}]")
+                resp = requests.get(target_url)
+                logger.debug(
+                    f"[ConnectionManager][check controller][resp({resp.status_code})]"
+                )
+                if resp.status_code != 200:
+                    logger.debug("[ConnectionManager][Cannot connect to controller]")
+            except (OSError, requests.RequestException) as ex:
+                logger.debug(f"[ConnectionManager][check controller][exception][{ex}]")
+                connection_checks &= False
+            else:
+                connection_checks &= True
+
+            try:
+                logger.debug(
+                    f"[ConnectionManager][check dashboard][{self.dashboard_link}]"
+                )
+                resp = requests.get(self.dashboard_link)
+                logger.debug(
+                    f"[ConnectionManager][check dashboard][resp({resp.status_code})]"
+                )
+                if resp.status_code != 200:
+                    logger.debug("[ConnectionManager][Cannot connect to dashboard]")
+            except (OSError, requests.RequestException) as ex:
+                logger.debug(f"[ConnectionManager][check dashboard][exception][{ex}]")
+                connection_checks &= False
+            else:
+                connection_checks &= True
+
+            logger.debug(
+                f"[ConnectionManager][Test connections: attempt {attempt}][connection: {connection_checks}]"
+            )
+
+            if connection_checks:
+                break
+
+        return connection_checks
 
 
 class ConnectionLoop(Process):
