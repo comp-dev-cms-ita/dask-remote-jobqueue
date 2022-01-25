@@ -430,38 +430,41 @@ class RemoteHTCondor:
                 logger.debug("[_make_connections][Start connection manager]")
                 self.connection_manager.start()
 
-    async def _connection_ok(self, attempts: int = 6) -> bool:
+    async def _connection_ok(
+        self, attempts: int = 6, only_controller: bool = False
+    ) -> bool:
         logger.debug("[_connection_ok][run][Check job status]")
         cmd = "condor_q {}.0 -json".format(self.cluster_id)
         logger.debug(f"[_connection_ok][run][{cmd}]")
 
-        cmd_out = ""
-        try:
-            cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
-            logger.debug(f"[_connection_ok][run][{cmd_out.decode('ascii')}]")
-        except Exception as cur_ex:
-            logger.debug(f"[_connection_ok][run][{cur_ex}][{cmd_out}]")
-            self._job_status = "Failed to condor_q..."
-            self.state = State.error
-            return False
+        if not only_controller:
+            cmd_out = ""
+            try:
+                cmd_out = check_output(cmd, stderr=STDOUT, shell=True)
+                logger.debug(f"[_connection_ok][run][{cmd_out.decode('ascii')}]")
+            except Exception as cur_ex:
+                logger.debug(f"[_connection_ok][run][{cur_ex}][{cmd_out}]")
+                self._job_status = "Failed to condor_q..."
+                self.state = State.error
+                return False
 
-        try:
-            classAd = json.loads(cmd_out)
-            logger.debug(f"[_connection_ok][run][classAd: {classAd}]")
-        except Exception as cur_ex:
-            logger.debug(f"[_connection_ok][run][{cur_ex}][{cmd_out}]")
-            self._job_status = "Failed to decode claasAd..."
-            self.state = State.error
-            return False
+            try:
+                classAd = json.loads(cmd_out)
+                logger.debug(f"[_connection_ok][run][classAd: {classAd}]")
+            except Exception as cur_ex:
+                logger.debug(f"[_connection_ok][run][{cur_ex}][{cmd_out}]")
+                self._job_status = "Failed to decode claasAd..."
+                self.state = State.error
+                return False
 
-        job_status = classAd[0].get("JobStatus")
-        logger.debug(f"[_connection_ok][job_status: {job_status}]")
-        if job_status != 2:
-            self.state = State.error
-            self._job_status = "Scheduler Job exited with errors..."
-            self.dashboard_link = ""
+            job_status = classAd[0].get("JobStatus")
+            logger.debug(f"[_connection_ok][job_status: {job_status}]")
+            if job_status != 2:
+                self.state = State.error
+                self._job_status = "Scheduler Job exited with errors..."
+                self.dashboard_link = ""
 
-            return False
+                return False
 
         logger.debug("[_connection_ok][Test connections...]")
         connection_checks: bool = True
@@ -487,21 +490,22 @@ class RemoteHTCondor:
             else:
                 connection_checks &= True
 
-            try:
-                logger.debug(
-                    f"[_connection_ok][check dashboard][{self.dashboard_link}]"
-                )
-                resp = await self.httpx_client.get(self.dashboard_link)
-                logger.debug(
-                    f"[_connection_ok][check dashboard][resp({resp.status_code})]"
-                )
-                if resp.status_code != 200:
-                    logger.debug("[_connection_ok][Cannot connect to dashboard]")
-            except (OSError, httpx.HTTPError) as ex:
-                logger.debug(f"[_connection_ok][check dashboard][exception][{ex}]")
-                connection_checks &= False
-            else:
-                connection_checks &= True
+            if not only_controller:
+                try:
+                    logger.debug(
+                        f"[_connection_ok][check dashboard][{self.dashboard_link}]"
+                    )
+                    resp = await self.httpx_client.get(self.dashboard_link)
+                    logger.debug(
+                        f"[_connection_ok][check dashboard][resp({resp.status_code})]"
+                    )
+                    if resp.status_code != 200:
+                        logger.debug("[_connection_ok][Cannot connect to dashboard]")
+                except (OSError, httpx.HTTPError) as ex:
+                    logger.debug(f"[_connection_ok][check dashboard][exception][{ex}]")
+                    connection_checks &= False
+                else:
+                    connection_checks &= True
 
             logger.debug(
                 f"[_connection_ok][Test connections: attempt {attempt}][connection: {connection_checks}]"
@@ -567,7 +571,7 @@ class RemoteHTCondor:
         if self.asynchronous:
 
             async def callScale():
-                connected: bool = await self._connection_ok()
+                connected: bool = await self._connection_ok(only_controller=True)
                 if not connected:
                     raise Exception("Cluster is not reachable...")
 
@@ -615,7 +619,7 @@ class RemoteHTCondor:
         if self.asynchronous:
 
             async def callAdapt():
-                connected: bool = await self._connection_ok()
+                connected: bool = await self._connection_ok(only_controller=True)
                 if not connected:
                     raise Exception("Cluster is not reachable...")
 
