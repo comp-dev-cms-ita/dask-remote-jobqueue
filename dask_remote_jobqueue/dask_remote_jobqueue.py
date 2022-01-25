@@ -568,38 +568,14 @@ class RemoteHTCondor:
         target_url = f"http://127.0.0.1:{self.controller_port}/jobs?num={n}"
         logger.debug(f"[Scheduler][scale][num: {n}][url: {target_url}]")
 
-        if self.asynchronous:
-
-            async def callScale():
-                connected: bool = await self._connection_ok(only_controller=True)
-                if not connected:
-                    raise Exception("Cluster is not reachable...")
-
-                logger.debug("[Scheduler][scale][connection OK!]")
-
-                resp = await self.httpx_client.get(target_url)
-
-                if resp.status_code != 200:
-                    raise Exception("Cluster scale failed...")
-
-                logger.debug(
-                    f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]"
-                )
-
-            return callScale()
-
-        logger.debug("[Scheduler][scale][check connection...]")
-        cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-        connected = cur_loop.run_until_complete(self._connection_ok())
-
-        if not connected:
-            raise Exception("Cluster is not reachable...")
-
-        logger.debug("[Scheduler][scale][connection OK!]")
-
-        resp = requests.get(target_url)
-        if resp.status_code != 200:
-            raise Exception("Cluster scale failed...")
+        try:
+            resp = requests.get(target_url)
+            logger.debug(f"[Scheduler][scale][resp: {resp.status_code}]")
+            if resp.status_code != 200:
+                raise Exception("Cluster scale failed...")
+        except requests.RequestException as exc:
+            logger.debug(f"[Scheduler][scale][error: {exc}]")
+            raise
 
         logger.debug(f"[Scheduler][scale][resp({resp.status_code}): {resp.text}]")
 
@@ -614,39 +590,13 @@ class RemoteHTCondor:
             f"[Scheduler][adapt][minimum: {minimum}|maximum: {maximum}][url: {target_url}]"
         )
 
-        cur_loop: "asyncio.AbstractEventLoop" = asyncio.get_event_loop()
-
-        if self.asynchronous:
-
-            async def callAdapt():
-                connected: bool = await self._connection_ok(only_controller=True)
-                if not connected:
-                    raise Exception("Cluster is not reachable...")
-
-                logger.debug("[Scheduler][adapt][connection OK!]")
-
-                resp = await self.httpx_client.get(target_url)
-                if resp.status_code != 200:
-                    raise Exception("Cluster adapt failed...")
-
-                logger.debug(
-                    f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]"
-                )
-
-            cur_loop.create_task(callAdapt())
-
-            return AdaptiveProp(minimum, maximum)
-
-        logger.debug("[Scheduler][adapt][check connection...]")
-        connected = cur_loop.run_until_complete(self._connection_ok())
-        if not connected:
-            raise Exception("Cluster is not reachable...")
-
-        logger.debug("[Scheduler][adapt][connection OK!]")
-
-        resp = requests.get(target_url)
-        logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
-        if resp.status_code != 200:
-            raise Exception("Cluster adapt failed...")
+        try:
+            resp = requests.get(target_url)
+            logger.debug(f"[Scheduler][adapt][resp({resp.status_code}): {resp.text}]")
+            if resp.status_code != 200:
+                raise Exception("Cluster adapt failed...")
+        except requests.RequestException as exc:
+            logger.debug(f"[Scheduler][adapt][error: {exc}]")
+            raise
 
         return AdaptiveProp(minimum, maximum)
