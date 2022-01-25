@@ -513,7 +513,7 @@ class RemoteHTCondor:
             return False
 
         logger.debug("[_connection_ok][Test connections...]")
-        connection_checks = True
+        connection_checks: bool = True
 
         for attempt in range(attempts):
             await asyncio.sleep(2.4)
@@ -532,9 +532,9 @@ class RemoteHTCondor:
                     logger.debug("[_connection_ok][Cannot connect to controller]")
             except (OSError, httpx.HTTPError) as ex:
                 logger.debug(f"[_connection_ok][check controller][exception][{ex}]")
-                connection_checks = connection_checks and False
+                connection_checks &= False
             else:
-                connection_checks = connection_checks and True
+                connection_checks &= True
 
             try:
                 logger.debug(
@@ -548,14 +548,16 @@ class RemoteHTCondor:
                     logger.debug("[_connection_ok][Cannot connect to dashboard]")
             except (OSError, httpx.HTTPError) as ex:
                 logger.debug(f"[_connection_ok][check dashboard][exception][{ex}]")
-                connection_checks = connection_checks and False
+                connection_checks &= False
             else:
-                connection_checks = connection_checks and True
+                connection_checks &= True
+
+            logger.debug(
+                f"[_connection_ok][Test connections: attempt {attempt}][connection: {connection_checks}]"
+            )
 
             if connection_checks:
                 break
-
-            connection_checks = True
 
         return connection_checks
 
