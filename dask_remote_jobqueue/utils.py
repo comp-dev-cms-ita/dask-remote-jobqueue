@@ -418,7 +418,9 @@ class StartDaskScheduler(Process):
             self._token = getattr(self._remoteHTCondor, "token")
             logger.debug(f"[StartDaskScheduler][copy of token: {self._token}]")
             self._sched_port = getattr(self._remoteHTCondor, "sched_port")
-            logger.debug(f"[StartDaskScheduler][copy of sched_port: {self._sched_port}]")
+            logger.debug(
+                f"[StartDaskScheduler][copy of sched_port: {self._sched_port}]"
+            )
             self._dash_port = getattr(self._remoteHTCondor, "dash_port")
             logger.debug(f"[StartDaskScheduler][copy of dash_port: {self._dash_port}]")
             self._controller_port = getattr(self._remoteHTCondor, "controller_port")
@@ -430,7 +432,9 @@ class StartDaskScheduler(Process):
                 f"[StartDaskScheduler][copy of refresh_token: {self._refresh_token}]"
             )
             self._iam_server = getattr(self._remoteHTCondor, "iam_server")
-            logger.debug(f"[StartDaskScheduler][copy of iam_server: {self._iam_server}]")
+            logger.debug(
+                f"[StartDaskScheduler][copy of iam_server: {self._iam_server}]"
+            )
             self._client_id = getattr(self._remoteHTCondor, "client_id")
             logger.debug(f"[StartDaskScheduler][copy of client_id: {self._client_id}]")
             self._client_secret = getattr(self._remoteHTCondor, "client_secret")
@@ -462,9 +466,7 @@ class StartDaskScheduler(Process):
                 f"[StartDaskScheduler][copy of htc_sec_method: {self._htc_sec_method}]"
             )
         except AttributeError as exc:
-            logger.debug(
-                f"[StartDaskScheduler][copy error: {exc}]"
-            )
+            logger.debug(f"[StartDaskScheduler][copy error: {exc}]")
             raise
 
     def run(self):
