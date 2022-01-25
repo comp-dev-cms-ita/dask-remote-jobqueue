@@ -433,7 +433,7 @@ class RemoteHTCondor:
     async def _connection_ok(
         self, attempts: int = 6, only_controller: bool = False
     ) -> bool:
-      
+
         logger.debug("[_connection_ok][run][Check job status]")
         cmd = "condor_q {}.0 -json".format(self.cluster_id)
         logger.debug(f"[_connection_ok][run][{cmd}]")
