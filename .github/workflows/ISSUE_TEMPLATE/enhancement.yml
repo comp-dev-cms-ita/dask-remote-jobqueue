@@ -1,0 +1,19 @@
+name: Enhancement Issue
+description: Provide supporting details for a requested feature
+labels: wanted/feature
+body:
+  - type: textarea
+    id: feature
+    attributes:
+      label: What would you like to be added?
+      description: |
+        Please describe what you would like to have or desire as new feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Why is this needed?
+    validations:
+      required: true
