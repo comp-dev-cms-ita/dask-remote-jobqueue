@@ -35,7 +35,7 @@ while true; do
 done &
 
 source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh
-conda activate cms-dodas
+conda activate af
 
 if command -V tini &>/dev/null; then
     tini -s python3 -- start_scheduler.py
