@@ -44,7 +44,7 @@ class MyHTCondorJob(HTCondorJob):
             *args,
             **kwargs,
             death_timeout=60 * 5,  # 5min
-            python="source /cvmfs/cms.dodas.infn.it/miniconda3/etc/profile.d/conda.sh; conda activate af; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/af/bin/thisroot.sh; python3",
+            python="/cvmfs/sft.cern.ch/lcg/app/releases/ROOT/6.26.00/x86_64-ubuntu18-gcc75-opt/bin/thisroot.sh; python3",
         )
 
 
