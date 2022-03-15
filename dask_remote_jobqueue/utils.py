@@ -493,11 +493,16 @@ class StartDaskScheduler(Process):
             if self._sitename:
                 selected_sitename = f'requirements = ( SiteName == "{self._sitename}" )'
 
+            tunnel_service_ip = self._environ.get(
+                "TUNNEL_SERVICE_IP", "jhub.131.154.96.124.myip.cloud.infn.it"
+            )
+
             for f in files:
                 tmpl = env.get_template(f)
                 with open(tmpdirname + "/" + f, "w") as dest:
                     render = tmpl.render(
                         name=self._username,
+                        tunnel_service_ip=tunnel_service_ip,
                         token=self._token,
                         sched_port=self._sched_port,
                         dash_port=self._dash_port,
