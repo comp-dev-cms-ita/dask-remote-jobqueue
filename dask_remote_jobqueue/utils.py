@@ -496,9 +496,7 @@ class StartDaskScheduler(Process):
             tunnel_service_ip = self._environ.get(
                 "TUNNEL_SERVICE_IP", "jhub.131.154.96.124.myip.cloud.infn.it"
             )
-            tunnel_service_port = self._environ.get(
-                "TUNNEL_SERVICE_PORT", "31022"
-            )
+            tunnel_service_port = self._environ.get("TUNNEL_SERVICE_PORT", "31022")
 
             for f in files:
                 tmpl = env.get_template(f)
