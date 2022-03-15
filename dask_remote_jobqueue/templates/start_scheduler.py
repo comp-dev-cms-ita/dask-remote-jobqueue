@@ -81,9 +81,10 @@ name = os.environ.get("JHUB_USER", "")
 sched_port = int(os.environ.get("SCHED_PORT", "42000"))
 dash_port = int(os.environ.get("DASH_PORT", "42001"))
 controller_port = int(os.environ.get("CONTROLLER_PORT", "42002"))
-tunnel_service_ip = int(
-    os.environ.get("TUNNEL_SERVICE_IP", "jhub.131.154.96.124.myip.cloud.infn.it")
+tunnel_service_ip = os.environ.get(
+    "TUNNEL_SERVICE_IP", "jhub.131.154.96.124.myip.cloud.infn.it"
 )
+tunnel_service_port = int(os.environ.get("TUNNEL_SERVICE_PORT", "31022"))
 
 logger.debug(f"name: {name}")
 logger.debug(f"token: {token}")
@@ -297,7 +298,7 @@ async def tunnel_scheduler():
     logger.debug("start tunnel scheduler")
     connection = await asyncssh.connect(
         tunnel_service_ip,
-        port=31022,
+        port=tunnel_service_port,
         username=name,
         password=token,
         known_hosts=None,
@@ -312,7 +313,7 @@ async def tunnel_dashboard():
     logger.debug("start tunnel dashboard")
     connection = await asyncssh.connect(
         tunnel_service_ip,
-        port=31022,
+        port=tunnel_service_port,
         username=name,
         password=token,
         known_hosts=None,
@@ -327,7 +328,7 @@ async def tunnel_controller():
     logger.debug("start tunnel controller")
     connection = await asyncssh.connect(
         tunnel_service_ip,
-        port=31022,
+        port=tunnel_service_port,
         username=name,
         password=token,
         known_hosts=None,
