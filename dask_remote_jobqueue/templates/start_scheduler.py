@@ -44,7 +44,7 @@ class MyHTCondorJob(HTCondorJob):
             *args,
             **kwargs,
             death_timeout=60 * 60,  # 60min
-            python="source /cvmfs/cms.dodas.infn.it/miniconda3/bin/activate; conda activate af-test; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/af-test/bin/thisroot.sh; python3",
+            python="source /cvmfs/cms.dodas.infn.it/miniconda3/bin/activate; conda activate af-test; sleep $[ ( $RANDOM % 60 ) + 1 ]s; python3",
         )
 
 
@@ -109,7 +109,7 @@ logger.debug(f"SiteName is: {site}")
 scheduler_options_vars = {
     "host": ":{}".format(sched_port),
     "dashboard_address": "127.0.0.1:{}".format(dash_port),
-    "idle_timeout": "4h",
+    "idle_timeout": "6h",
 }
 job_extra_vars = {
     "+OWNER": '"' + name.split("-")[0] + '"',
