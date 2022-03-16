@@ -43,7 +43,7 @@ class MyHTCondorJob(HTCondorJob):
         super().__init__(
             *args,
             **kwargs,
-            death_timeout=60 * 5,  # 5min
+            death_timeout=60 * 60,  # 60min
             python="source /cvmfs/cms.dodas.infn.it/miniconda3/bin/activate; conda activate af-test; source /cvmfs/cms.dodas.infn.it/miniconda3/envs/af-test/bin/thisroot.sh; python3",
         )
 
