@@ -487,6 +487,7 @@ class StartDaskScheduler(Process):
                 "start_scheduler.py",
                 "job_submit.sh",
                 "job_rm.sh",
+                "entrypoint.sh"
             ]
 
             selected_sitename = "# requirements: Nil"
