@@ -113,7 +113,7 @@ scheduler_options_vars = {
 }
 job_extra_vars = {
     "+OWNER": '"' + name.split("-")[0] + '"',
-    "+SingularityImage": "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-v1",
+    "+SingularityImage": '"/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-v1"',
     "log": "wn.log",
     "output": "wn.out",
     "error": "wn.error",
