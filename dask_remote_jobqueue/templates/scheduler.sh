@@ -11,6 +11,7 @@ export OIDC_CONFIG_DIR
 
 chmod +x job_submit.sh
 chmod +x job_rm.sh
+chmod +x entrypoint.sh
 
 # Configure oidc-agent for user token management
 # Ref: https://indigo-dc.gitbook.io/oidc-agent/user/oidc-keychain
