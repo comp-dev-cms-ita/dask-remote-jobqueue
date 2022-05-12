@@ -302,7 +302,7 @@ async def tunnel_scheduler():
         known_hosts=None,
     )
     forwarder = await connection.forward_remote_port(
-        "127.0.0.1", sched_port, "0.0.0.0", sched_port
+        "0.0.0.0", sched_port, "0.0.0.0", sched_port
     )
     await forwarder.wait_closed()
 
@@ -317,7 +317,7 @@ async def tunnel_dashboard():
         known_hosts=None,
     )
     forwarder = await connection.forward_remote_port(
-        "127.0.0.1", dash_port, "0.0.0.0", dash_port
+        "0.0.0.0", dash_port, "0.0.0.0", dash_port
     )
     await forwarder.wait_closed()
 
@@ -332,7 +332,7 @@ async def tunnel_controller():
         known_hosts=None,
     )
     forwarder = await connection.forward_remote_port(
-        "127.0.0.1", controller_port, "0.0.0.0", controller_port
+        "0.0.0.0", controller_port, "0.0.0.0", controller_port
     )
     await forwarder.wait_closed()
 
@@ -388,7 +388,7 @@ class ScaleZeroAndCloseHandler(tornado.web.RequestHandler):
     def prepare(self):
         logger.debug(self.request.arguments)
 
-
+        
 class LogsHandler(tornado.web.RequestHandler):
     def initialize(self, sched_q: Queue, controller_q: Queue):
         self.sched_q: Queue = sched_q
