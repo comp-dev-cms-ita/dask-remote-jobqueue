@@ -37,7 +37,7 @@ logger.debug(f"[dask][config][default][{dask.config.config}]")
 class MyHTCondorJob(HTCondorJob):
     submit_command = "./job_submit.sh"
     cancel_command = "./job_rm.sh"
-    executable = "/bin/bash"
+    executable = "entrypoint.sh"
 
     def __init__(self, *args, **kwargs):
         super().__init__(
