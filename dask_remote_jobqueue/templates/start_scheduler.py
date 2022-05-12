@@ -44,7 +44,7 @@ class MyHTCondorJob(HTCondorJob):
             *args,
             **kwargs,
             death_timeout=60 * 60,  # 60min
-            python="source /cvmfs/cms.dodas.infn.it/miniconda3/bin/activate; conda activate af-test; python3",
+            python="python3",
         )
 
 
@@ -113,10 +113,12 @@ scheduler_options_vars = {
 }
 job_extra_vars = {
     "+OWNER": '"' + name.split("-")[0] + '"',
+    "+SingularityImage": "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-v1",
     "log": "wn.log",
     "output": "wn.out",
     "error": "wn.error",
     "should_transfer_files": "YES",
+    "when_to_transfer_output": "ON_EXIT"
 }
 
 if site:
