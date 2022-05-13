@@ -7,7 +7,7 @@ output     = dask_scheduler.out
 error      = dask_scheduler.error
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
-+SingularityImage = "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/dask-scheduler:v1"
+
 {{ selected_sitename }}
 transfer_input_files = start_scheduler.py, scheduler.sh, /ca.crt, /tmp/token, job_submit.sh, job_rm.sh, .bashrc, config.yaml, entrypoint.sh
 environment = HOME=./; OIDC_CONFIG_DIR=./.oidc-agent; TUNNEL_SERVICE_IP={{ tunnel_service_ip }}; TUNNEL_SERVICE_PORT={{ tunnel_service_port }}; JHUB_TOKEN={{ token }};JHUB_USER={{ name }};SCHED_PORT={{ sched_port }};DASH_PORT={{ dash_port }};CONTROLLER_PORT={{ controller_port }};REFRESH_TOKEN={{ refresh_token }};IAM_SERVER={{ iam_server }};IAM_CLIENT_ID={{ client_id }};IAM_CLIENT_SECRET={{ client_secret }};_condor_AUTH_SSL_CLIENT_CAFILE={{ htc_ca }};_condor_TOOL_DEBUG={{ htc_debug }};_condor_COLLECTOR_HOST={{ htc_collector }}; _condor_SCHEDD_HOST={{ htc_schedd_host }};_condor_SCHEDD_NAME={{ htc_schedd_name }};_condor_SCITOKENS_FILE={{ htc_scitoken_file }};_condor_SEC_DEFAULT_AUTHENTICATION_METHODS={{ htc_sec_method}}
