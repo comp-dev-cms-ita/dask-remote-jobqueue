@@ -54,6 +54,7 @@ class RemoteHTCondor:
         ssh_url_port: int = 8122,
         asynchronous: bool = True,  # Set by dask-labextension but not used in this class
         sitename: str = "",
+        singularity_wn_image = "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1",
         debug: bool = True,
     ):
         self.__debug = debug
@@ -115,6 +116,8 @@ class RemoteHTCondor:
 
         self.cluster_id: str = ""
         self.sitename: str = sitename
+
+        self.singularity_wn_image: str = singularity_wn_image
 
         # Jupyter env vars
         self.username = (
@@ -363,7 +366,7 @@ class RemoteHTCondor:
 
             if self.start_sched_process is None:
                 self.start_sched_process = StartDaskScheduler(
-                    weakref.proxy(self), self.start_sched_process_q, os.environ
+                    weakref.proxy(self), self.start_sched_process_q, os.environ, self.singularity_wn_image
                 )
                 logger.debug("[_start][start sched process...]")
                 self.start_sched_process.start()

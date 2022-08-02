@@ -81,6 +81,7 @@ name = os.environ.get("JHUB_USER", "")
 sched_port = int(os.environ.get("SCHED_PORT", "42000"))
 dash_port = int(os.environ.get("DASH_PORT", "42001"))
 controller_port = int(os.environ.get("CONTROLLER_PORT", "42002"))
+singularity_wn_image = os.environ.get("SINGULARITY_WN_IMAGE", "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1")
 tunnel_service_ip = os.environ.get(
     "TUNNEL_SERVICE_IP", "jhub.131.154.96.124.myip.cloud.infn.it"
 )
@@ -113,7 +114,7 @@ scheduler_options_vars = {
 }
 job_extra_vars = {
     "+OWNER": '"' + name.split("-")[0] + '"',
-    "+SingularityImage": '"/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1"',
+    "+SingularityImage": singularity_wn_image,
     "log": "wn.log",
     "output": "wn.out",
     "error": "wn.error",

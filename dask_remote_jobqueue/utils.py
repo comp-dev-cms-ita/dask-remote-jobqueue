@@ -385,9 +385,11 @@ class StartDaskScheduler(Process):
         remoteHTCondor: weakref.ProxyType,
         queue: "Queue",
         environ: os._Environ,
+        singularity_wn_image: "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1",
     ):
         logger.debug("[StartDaskScheduler][init]")
         super().__init__()
+        self.singularity_wn_image = singularity_wn_image
         self._remoteHTCondor: weakref.ProxyType = remoteHTCondor
         self._queue: "Queue" = queue
         self._environ: os._Environ = environ
@@ -522,6 +524,7 @@ class StartDaskScheduler(Process):
                         htc_scitoken_file=self._htc_scitoken_file,
                         htc_sec_method=self._htc_sec_method,
                         selected_sitename=selected_sitename,
+                        singularity_wn_image=self.singularity_wn_image
                     )
 
                     logger.debug(f"[StartDaskScheduler][run][{dest.name}]")
