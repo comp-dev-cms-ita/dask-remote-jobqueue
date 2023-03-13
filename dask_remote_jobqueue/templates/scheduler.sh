@@ -4,10 +4,6 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-mkdir -p "$(pwd)/.oidc-agent"
-
-OIDC_CONFIG_DIR="$(pwd)/.oidc-agent"
-export OIDC_CONFIG_DIR
 
 chmod +x job_submit.sh
 chmod +x job_rm.sh
@@ -30,9 +26,17 @@ oidc-gen dodas --issuer "$IAM_SERVER" \
     --redirect-uri http://localhost:8843 \
     --pw-cmd "echo \"DUMMY PWD\""
 
+
 while true; do
-    oidc-token dodas --time 1200 >token
-    sleep 600
+    curl -d grant_type=urn:ietf:params:oauth:grant-type:token-exchange \
+        -u $IAM_CLIENT_ID:$IAM_CLIENT_SECRET \
+        -d audience="https://wlcg.cern.ch/jwt/v1/any" \
+        -d subject_token=`cat token` \
+        -d scope="openid profile wlcg wlcg.groups" \
+        ${IAM_SERVER}/token \
+        | tee /tmp/response | jq .access_token |  tr -d '"' |  tr -d '\n'> /tmp/token_tmp \
+    && cp /tmp/token_tmp token
+    sleep 72000
 done &
 
 source /cvmfs/cms.dodas.infn.it/miniconda3/bin/activate
