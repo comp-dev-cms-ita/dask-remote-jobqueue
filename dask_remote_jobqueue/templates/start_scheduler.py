@@ -110,7 +110,7 @@ scheduler_options_vars = {
 }
 job_extra_vars = {
     "+OWNER": '"' + name.split("-")[0] + '"',
-    "+SingularityImage": singularity_wn_image,
+    "+SingularityImage": '"' + singularity_wn_image + '"',
     "log": "wn.log",
     "output": "wn.out",
     "error": "wn.error",
