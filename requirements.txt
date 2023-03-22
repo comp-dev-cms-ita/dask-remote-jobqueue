@@ -1,5 +1,5 @@
 asyncssh
-dask==2022.9.2
+dask==2021.11.1
 dask_jobqueue
 httpx
 jinja2
