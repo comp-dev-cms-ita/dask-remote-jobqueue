@@ -37,7 +37,10 @@ class ConnectionManager(Process):
         asyncio.set_event_loop(self.cur_loop)
         self.cluster_id: str = cluster_id
         self.ssh_namespace: str = ssh_namespace
-        self.ssh_url: str = f"ssh-listener.{self.ssh_namespace}.svc.cluster.local"
+        if ssh_url:
+            self.ssh_url: str = ssh_url
+        else:
+            self.ssh_url: str = f"ssh-listener.{self.ssh_namespace}.svc.cluster.local"
         self.ssh_url_port: int = ssh_url_port
         self.username: str = username
         self.token: str = token
