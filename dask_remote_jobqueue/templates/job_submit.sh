@@ -15,4 +15,5 @@ export _condor_SCHEDD_NAME={{ htc_schedd_name }}
 export _condor_SCITOKENS_FILE={{ htc_scitoken_file }}
 export _condor_SEC_DEFAULT_AUTHENTICATION_METHODS={{ htc_sec_method}}
 
+cat $@
 condor_submit -spool $@
