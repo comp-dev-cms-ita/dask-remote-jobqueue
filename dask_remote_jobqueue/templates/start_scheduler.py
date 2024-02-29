@@ -81,7 +81,7 @@ name = os.environ.get("JHUB_USER", "")
 sched_port = int(os.environ.get("SCHED_PORT", "42000"))
 dash_port = int(os.environ.get("DASH_PORT", "42001"))
 controller_port = int(os.environ.get("CONTROLLER_PORT", "42002"))
-singularity_wn_image = os.environ.get("SINGULARITY_WN_IMAGE", "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1")
+singularity_wn_image = os.environ.get("SINGULARITY_WN_IMAGE", "/cvmfs/unpacked.cern.ch/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1")
 
 logger.debug(f"name: {name}")
 logger.debug(f"token: {token}")
@@ -296,7 +296,7 @@ class SchedulerProc(Process):
 async def tunnel_scheduler():
     logger.debug("start tunnel scheduler")
     connection = await asyncssh.connect(
-        "jhub.131.154.96.124.myip.cloud.infn.it",
+        "jhub.131.154.98.185.myip.cloud.infn.it",
         port=31022,
         username=name,
         password=token,
@@ -311,7 +311,7 @@ async def tunnel_scheduler():
 async def tunnel_dashboard():
     logger.debug("start tunnel dashboard")
     connection = await asyncssh.connect(
-        "jhub.131.154.96.124.myip.cloud.infn.it",
+        "jhub.131.154.98.185.myip.cloud.infn.it",
         port=31022,
         username=name,
         password=token,
@@ -326,7 +326,7 @@ async def tunnel_dashboard():
 async def tunnel_controller():
     logger.debug("start tunnel controller")
     connection = await asyncssh.connect(
-        "jhub.131.154.96.124.myip.cloud.infn.it",
+        "jhub.131.154.98.185.myip.cloud.infn.it",
         port=31022,
         username=name,
         password=token,
@@ -389,7 +389,7 @@ class ScaleZeroAndCloseHandler(tornado.web.RequestHandler):
     def prepare(self):
         logger.debug(self.request.arguments)
 
-        
+
 class LogsHandler(tornado.web.RequestHandler):
     def initialize(self, sched_q: Queue, controller_q: Queue):
         self.sched_q: Queue = sched_q
@@ -424,22 +424,18 @@ class LogsHandler(tornado.web.RequestHandler):
                 font-size: 15px;
                 border-bottom: 
             }
-
             .active, .collapsible:hover {
                 background-color: #ec8f72;
             }
-
             .content {
                 padding: 0 18px;
                 display: none;
                 overflow: hidden;
                 background-color: #fafafa;
             }
-
             table, th, td {
                 border: 1px solid black;
             }
-
             table {
                 width: 100%;
             }
@@ -545,7 +541,6 @@ class LogsHandler(tornado.web.RequestHandler):
             """<script>
     var coll = document.getElementsByClassName("collapsible");
     var i;
-
     for (i = 0; i < coll.length; i++) {
     coll[i].addEventListener("click", function() {
         this.classList.toggle("active");
@@ -557,12 +552,9 @@ class LogsHandler(tornado.web.RequestHandler):
         }
     });
     }
-
     window.onscroll = function() {myFunction()};
-
     var header = document.getElementById("myHeader");
     var sticky = header.offsetTop;
-
     function myFunction() {
     if (window.pageYOffset > sticky) {
         header.classList.add("sticky");
@@ -570,7 +562,6 @@ class LogsHandler(tornado.web.RequestHandler):
         header.classList.remove("sticky");
     }
     }
-
     var origin_location = window.location.href;
     function reload() {
         window.location.href = origin_location;
@@ -666,7 +657,6 @@ class WorkerSpecHandler(tornado.web.RequestHandler):
 
     def get(self):
         """Return a descriptive dictionary of worker specs.
-
         Example worker_spec:
             {
                 "HTCondorCluster-0": {
