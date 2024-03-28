@@ -6,7 +6,7 @@
 
 chmod +x job_submit.sh
 chmod +x job_rm.sh
-chmod +x entrypoint.sh
+#chmod +x entrypoint.sh
 
 while true; do
     curl -d grant_type=urn:ietf:params:oauth:grant-type:token-exchange \
@@ -20,11 +20,12 @@ while true; do
     sleep 72000
 done &
 
-source /cvmfs/cms.dodas.infn.it/miniconda3/bin/activate
-conda activate af-test
+#source /cvmfs/cms.dodas.infn.it/miniconda3/bin/activate
+#conda activate af-test
 
-if command -V tini &>/dev/null; then
-    tini -s python3 -- start_scheduler.py
-else
-    python3 start_scheduler.py
-fi
+#if command -V tini &>/dev/null; then
+#    tini -s python3 -- start_scheduler.py
+#else
+#    python3 start_scheduler.py
+#fi
+python3 start_scheduler.py
