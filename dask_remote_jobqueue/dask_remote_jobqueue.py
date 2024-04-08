@@ -51,6 +51,7 @@ class RemoteHTCondor:
         self,
         ssh_namespace="default",
         user: str = "NONE",
+        ssh_url: str = "",
         ssh_url_port: int = 8122,
         asynchronous: bool = True,  # Set by dask-labextension but not used in this class
         sitename: str = "",
@@ -112,6 +113,7 @@ class RemoteHTCondor:
         logger.debug(f"generated -> controller_port: {self.controller_port}")
 
         # Custom ssh port for the tunnel
+        self.ssh_url: str = ssh_url
         self.ssh_url_port: int = ssh_url_port
 
         self.cluster_id: str = ""
@@ -422,6 +424,7 @@ class RemoteHTCondor:
                     self.connection_process_q,
                     cluster_id=self.cluster_id,
                     ssh_namespace=self.ssh_namespace,
+                    ssh_url=self.ssh_url,
                     ssh_url_port=self.ssh_url_port,
                     username=self.username,
                     token=self.token,
