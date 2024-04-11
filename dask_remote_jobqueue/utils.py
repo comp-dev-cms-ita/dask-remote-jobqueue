@@ -106,7 +106,7 @@ class ConnectionManager(Process):
             connected = self._connection_ok(1)
             logger.debug(f"[ConnectionManager][attempt: {attempt}][{connected}]")
 
-            if attempt >= 42:
+            if attempt >= 10000:
                 self.connection_manager_q.put(
                     f"ERROR - ATTEMPT TO CONNECT EXCEEDED # {attempt}"
                 )
