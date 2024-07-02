@@ -45,7 +45,7 @@ class MyHTCondorJob(HTCondorJob):
             **kwargs,
             death_timeout=60 * 5,  # 5min
             python="python3",
-            submit_command_extra = "-spool"
+            #submit_command_extra = "-spool"
         )
         self.submit_command = "./job_submit.sh"
         self.cancel_command = "./job_rm.sh"
