@@ -47,6 +47,9 @@ class MyHTCondorJob(HTCondorJob):
             python="python3",
             submit_command_extra = "-spool"
         )
+        self.submit_command = "./job_submit.sh"
+        self.cancel_command = "./job_rm.sh"
+        self.executable = "/bin/bash"
 
 
 ##
