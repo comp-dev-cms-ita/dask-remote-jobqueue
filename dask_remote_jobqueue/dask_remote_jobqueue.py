@@ -57,6 +57,8 @@ class RemoteHTCondor:
         sitename: str = "",
         singularity_wn_image = "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1",
         debug: bool = True,
+        user_cores: int = 1,
+        user_memory: str = "2 GiB",
     ):
         self.__debug = debug
 
@@ -150,6 +152,10 @@ class RemoteHTCondor:
         self.client_id = os.environ.get("IAM_CLIENT_ID")
         self.client_secret = os.environ.get("IAM_CLIENT_SECRET")
 
+        # Dask worker spec
+        self.user_cores: int = user_cores
+        self.user_memory: str = user_memory
+        
         ##
         # Dask labextension variables
         #

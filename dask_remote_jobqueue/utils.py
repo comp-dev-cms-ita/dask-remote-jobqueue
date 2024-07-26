@@ -519,7 +519,9 @@ class StartDaskScheduler(Process):
                         htc_scitoken_file=self._htc_scitoken_file,
                         htc_sec_method=self._htc_sec_method,
                         selected_sitename=selected_sitename,
-                        singularity_wn_image=self.singularity_wn_image
+                        singularity_wn_image=self.singularity_wn_image,
+                        user_cores=self._user_cores,
+                        user_memory=self._user_memory
                     )
 
                     logger.debug(f"[StartDaskScheduler][run][{dest.name}]")

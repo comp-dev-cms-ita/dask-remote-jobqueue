@@ -87,6 +87,9 @@ dash_port = int(os.environ.get("DASH_PORT", "42001"))
 controller_port = int(os.environ.get("CONTROLLER_PORT", "42002"))
 singularity_wn_image = os.environ.get("SINGULARITY_WN_IMAGE", "/cvmfs/unpacked.cern.ch/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1")
 
+user_cores = int(os.environ.get("USER_CORES", 1))
+user_memory = int(os.environ.get("USER_MEMORY", "2 GiB"))
+
 logger.debug(f"name: {name}")
 logger.debug(f"token: {token}")
 
@@ -177,8 +180,10 @@ class SchedulerProc(Process):
     def run(self):
         self.cluster = HTCondorCluster(
             job_cls=MyHTCondorJob,
-            cores=1,
-            memory="2 GiB",  # ref: https://github.com/dask/dask/blob/e4799c0498b5e5877705bb5542d8d01116ee1320/dask/utils.py#L1404
+            cores = user_cores,
+            memory = user_memory,
+            #cores=1,
+            #memory="2 GiB",  # ref: https://github.com/dask/dask/blob/e4799c0498b5e5877705bb5542d8d01116ee1320/dask/utils.py#L1404
             disk="1 GB",
             scheduler_options=scheduler_options_vars,
             job_extra=job_extra_vars,
