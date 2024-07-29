@@ -415,6 +415,9 @@ class StartDaskScheduler(Process):
         self._htc_scitoken_file: str = ""
         self._htc_sec_method: str = ""
 
+        self._user_cores: int = 1
+        self._user_memory: str = "2 GiB"
+
     def _copy_attributes(self):
         try:
             self._sitename = getattr(self._remoteHTCondor, "sitename")
@@ -471,6 +474,16 @@ class StartDaskScheduler(Process):
             logger.debug(
                 f"[StartDaskScheduler][copy of htc_sec_method: {self._htc_sec_method}]"
             )
+            self._user_cores = getattr(self._remoteHTCondor, "user_cores")
+            logger.debug(
+                f"[StartDaskScheduler][copy of user_cores: {self._user_cores}]"
+            )
+            self._user_memory = getattr(self._remoteHTCondor, "user_memory")
+            logger.debug(
+                f"[StartDaskScheduler][copy of user_memory: {self._user_memory}]"
+            )
+
+
         except AttributeError as exc:
             logger.debug(f"[StartDaskScheduler][copy error: {exc}]")
             raise
