@@ -88,7 +88,7 @@ controller_port = int(os.environ.get("CONTROLLER_PORT", "42002"))
 singularity_wn_image = os.environ.get("SINGULARITY_WN_IMAGE", "/cvmfs/unpacked.cern.ch/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1")
 
 user_cores = int(os.environ.get("USER_CORES", 1))
-user_memory = int(os.environ.get("USER_MEMORY", "2 GiB"))
+user_memory = os.environ.get("USER_MEMORY", "2 GiB")
 
 logger.debug(f"name: {name}")
 logger.debug(f"token: {token}")
