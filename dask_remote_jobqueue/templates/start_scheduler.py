@@ -89,6 +89,8 @@ singularity_wn_image = os.environ.get("SINGULARITY_WN_IMAGE", "/cvmfs/unpacked.c
 
 user_cores = int(os.environ.get("USER_CORES", 1))
 user_memory = os.environ.get("USER_MEMORY", "2 GiB")
+if user_memory == "":
+    user_memory = "2 GiB"
 
 logger.debug(f"name: {name}")
 logger.debug(f"token: {token}")
