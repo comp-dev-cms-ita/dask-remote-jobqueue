@@ -191,6 +191,7 @@ class SchedulerProc(Process):
             job_extra=job_extra_vars,
             # silence_logs="debug",
             local_directory="./scratch",
+            job_script_prologue=['eval "$(conda shell.bash hook)"']
         )
 
         while self.cluster.status != Status.running:
