@@ -51,11 +51,14 @@ class RemoteHTCondor:
         self,
         ssh_namespace="default",
         user: str = "NONE",
+        ssh_url: str = "",
         ssh_url_port: int = 8122,
         asynchronous: bool = True,  # Set by dask-labextension but not used in this class
         sitename: str = "",
         singularity_wn_image = "/cvmfs/images.dodas.infn.it/registry.hub.docker.com/dodasts/root-in-docker:ubuntu22-kernel-v1",
         debug: bool = True,
+        user_cores: int = 1,
+        user_memory: str = "2 GiB",
     ):
         self.__debug = debug
 
@@ -112,6 +115,7 @@ class RemoteHTCondor:
         logger.debug(f"generated -> controller_port: {self.controller_port}")
 
         # Custom ssh port for the tunnel
+        self.ssh_url: str = ssh_url
         self.ssh_url_port: int = ssh_url_port
 
         self.cluster_id: str = ""
@@ -148,6 +152,10 @@ class RemoteHTCondor:
         self.client_id = os.environ.get("IAM_CLIENT_ID")
         self.client_secret = os.environ.get("IAM_CLIENT_SECRET")
 
+        # Dask worker spec
+        self.user_cores: int = user_cores
+        self.user_memory: str = user_memory
+        
         ##
         # Dask labextension variables
         #
@@ -422,6 +430,7 @@ class RemoteHTCondor:
                     self.connection_process_q,
                     cluster_id=self.cluster_id,
                     ssh_namespace=self.ssh_namespace,
+                    ssh_url=self.ssh_url,
                     ssh_url_port=self.ssh_url_port,
                     username=self.username,
                     token=self.token,

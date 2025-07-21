@@ -37,7 +37,10 @@ class ConnectionManager(Process):
         asyncio.set_event_loop(self.cur_loop)
         self.cluster_id: str = cluster_id
         self.ssh_namespace: str = ssh_namespace
-        self.ssh_url: str = f"ssh-listener.{self.ssh_namespace}.svc.cluster.local"
+        if ssh_url:
+            self.ssh_url: str = ssh_url
+        else:
+            self.ssh_url: str = f"ssh-listener.{self.ssh_namespace}.svc.cluster.local"
         self.ssh_url_port: int = ssh_url_port
         self.username: str = username
         self.token: str = token
@@ -103,7 +106,7 @@ class ConnectionManager(Process):
             connected = self._connection_ok(1)
             logger.debug(f"[ConnectionManager][attempt: {attempt}][{connected}]")
 
-            if attempt >= 42:
+            if attempt >= 10000:
                 self.connection_manager_q.put(
                     f"ERROR - ATTEMPT TO CONNECT EXCEEDED # {attempt}"
                 )
@@ -412,6 +415,9 @@ class StartDaskScheduler(Process):
         self._htc_scitoken_file: str = ""
         self._htc_sec_method: str = ""
 
+        self._user_cores: int = 1
+        self._user_memory: str = "2 GiB"
+
     def _copy_attributes(self):
         try:
             self._sitename = getattr(self._remoteHTCondor, "sitename")
@@ -468,6 +474,16 @@ class StartDaskScheduler(Process):
             logger.debug(
                 f"[StartDaskScheduler][copy of htc_sec_method: {self._htc_sec_method}]"
             )
+            self._user_cores = getattr(self._remoteHTCondor, "user_cores")
+            logger.debug(
+                f"[StartDaskScheduler][copy of user_cores: {self._user_cores}]"
+            )
+            self._user_memory = getattr(self._remoteHTCondor, "user_memory")
+            logger.debug(
+                f"[StartDaskScheduler][copy of user_memory: {self._user_memory}]"
+            )
+
+
         except AttributeError as exc:
             logger.debug(f"[StartDaskScheduler][copy error: {exc}]")
             raise
@@ -516,7 +532,9 @@ class StartDaskScheduler(Process):
                         htc_scitoken_file=self._htc_scitoken_file,
                         htc_sec_method=self._htc_sec_method,
                         selected_sitename=selected_sitename,
-                        singularity_wn_image=self.singularity_wn_image
+                        singularity_wn_image=self.singularity_wn_image,
+                        user_cores=self._user_cores,
+                        user_memory=self._user_memory
                     )
 
                     logger.debug(f"[StartDaskScheduler][run][{dest.name}]")
