@@ -1,6 +1,6 @@
 asyncssh
 dask
-dask_jobqueue < 0.9
+dask_jobqueue
 httpx
 jinja2
 loguru
